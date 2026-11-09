@@ -6,12 +6,17 @@ Built with plain HTML, CSS, and ES modules + [Three.js](https://threejs.org/) (v
 
 **Author:** Pratapsingh Hajari · +91 99705 30520 · [WhatsApp](https://wa.me/919970530520)
 
+## Play online
+
+**[Play Avatar Chess →](https://iampratap.github.io/avatar-chess/)**
+
+Hosted with GitHub Pages from this repository: [iampratap/avatar-chess](https://github.com/iampratap/avatar-chess).
+
 ## Play locally
 
-Serve the `web` folder over HTTP (modules need a local server, not `file://`):
+Serve this folder over HTTP (ES modules need a local server, not `file://`):
 
 ```bash
-cd web
 python3 -m http.server 8080
 ```
 
