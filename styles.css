@@ -576,25 +576,74 @@ body {
 }
 
 .board-seat-card {
+  position: relative;
+  isolation: isolate;
   display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.35rem 0.55rem 0.35rem 0.35rem;
-  border-radius: 999px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.35rem;
+  padding: 0.35rem 0.45rem 0.4rem;
+  border-radius: 16px;
   border: 1px solid color-mix(in srgb, var(--pc) 55%, var(--line));
   background: color-mix(in srgb, var(--glass) 88%, var(--pc));
   box-shadow: 0 8px 22px var(--shadow);
   backdrop-filter: blur(10px);
   color: var(--ink);
-  min-width: 7.2rem;
+  min-width: 7.4rem;
   transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease, filter 0.18s ease;
+}
+
+.board-seat-main {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* Traveling light that stays on the card border ring */
+@property --seat-spin {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
 }
 
 .board-seat-card.active {
   transform: scale(1.05);
+  border-color: color-mix(in srgb, var(--pc) 70%, white);
   box-shadow:
-    0 0 0 2px color-mix(in srgb, var(--pc) 70%, white),
+    0 0 0 1px color-mix(in srgb, var(--pc) 35%, transparent),
+    0 0 14px color-mix(in srgb, var(--pc) 40%, transparent),
     0 10px 28px var(--shadow);
+}
+
+.board-seat-card.active::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: calc(16px + 2px);
+  padding: 2px;
+  background: conic-gradient(
+    from var(--seat-spin),
+    transparent 0deg,
+    transparent 250deg,
+    color-mix(in srgb, var(--pc) 55%, transparent) 290deg,
+    #fff 325deg,
+    color-mix(in srgb, var(--pc) 85%, white) 345deg,
+    transparent 360deg
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 2;
+  animation: seatOutlineSpin 1.8s linear infinite;
+}
+
+@keyframes seatOutlineSpin {
+  to {
+    --seat-spin: 360deg;
+  }
 }
 
 .board-seat-card.dead {
@@ -649,16 +698,119 @@ body {
   color: var(--muted);
 }
 
+/* Upcoming powers as mini pieces sitting off the board edge */
+.board-seat-upcoming {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  padding: 0.2rem 0.15rem 0.05rem;
+  border-top: 1px dashed color-mix(in srgb, var(--pc) 35%, transparent);
+}
+
+.edge-piece {
+  width: 1.55rem;
+  height: 1.7rem;
+  border-radius: 0.55rem 0.55rem 0.35rem 0.35rem;
+  display: grid;
+  place-items: center;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--pc) 78%, white), var(--pc));
+  box-shadow:
+    0 2px 0 color-mix(in srgb, var(--pc) 55%, #000),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  color: #fff;
+  position: relative;
+  opacity: 0.72;
+  transition: opacity 0.25s ease, box-shadow 0.25s ease;
+}
+
+.edge-piece-glyph {
+  font-size: 0.95rem;
+  line-height: 1;
+  transform: translateY(-0.12rem);
+}
+
+/* LED under each power icon — brightness = how soon it is used */
+.edge-piece-led {
+  position: absolute;
+  left: 50%;
+  bottom: 0.14rem;
+  width: 0.72rem;
+  height: 0.18rem;
+  border-radius: 999px;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.28);
+  box-shadow: none;
+  transition: background 0.25s ease, box-shadow 0.25s ease;
+}
+
+.edge-piece[data-led='now'] {
+  opacity: 1;
+  box-shadow:
+    0 2px 0 color-mix(in srgb, var(--pc) 55%, #000),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    0 0 0 1px color-mix(in srgb, #fff 35%, transparent);
+}
+
+.edge-piece[data-led='now'] .edge-piece-led {
+  background: #f8fafc;
+  box-shadow:
+    0 0 6px 1px rgba(255, 255, 255, 0.95),
+    0 0 12px 2px color-mix(in srgb, var(--pc) 70%, #fff);
+}
+
+.edge-piece[data-led='next'] {
+  opacity: 0.92;
+}
+
+.edge-piece[data-led='next'] .edge-piece-led {
+  background: #fbbf24;
+  box-shadow:
+    0 0 5px 1px rgba(251, 191, 36, 0.85),
+    0 0 10px 1px color-mix(in srgb, var(--pc) 40%, #fbbf24);
+}
+
+.edge-piece[data-led='later'] {
+  opacity: 0.62;
+}
+
+.edge-piece[data-led='later'] .edge-piece-led {
+  background: color-mix(in srgb, var(--pc) 55%, #64748b);
+  box-shadow: 0 0 3px rgba(148, 163, 184, 0.35);
+}
+
+.edge-piece-gap {
+  width: 0.15rem;
+  height: 0.15rem;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--pc) 45%, transparent);
+  flex: 0 0 auto;
+}
+
+.edge-piece[data-power='rook'] {
+  border-radius: 0.35rem 0.35rem 0.3rem 0.3rem;
+}
+
+.edge-piece[data-power='knight'] {
+  border-radius: 0.65rem 0.35rem 0.3rem 0.45rem;
+}
+
+.edge-piece[data-power='bishop'] {
+  border-radius: 50% 50% 0.35rem 0.35rem;
+}
+
 @media (max-width: 720px) {
   .board-seat-card {
     min-width: 0;
-    padding: 0.28rem 0.4rem 0.28rem 0.28rem;
+    padding: 0.28rem 0.35rem 0.32rem;
+    gap: 0.28rem;
   }
 
   .board-seat-avatar {
-    width: 1.7rem;
-    height: 1.7rem;
-    font-size: 0.82rem;
+    width: 1.55rem;
+    height: 1.55rem;
+    font-size: 0.78rem;
   }
 
   .board-seat-name,
@@ -667,6 +819,15 @@ body {
   }
 
   .board-seat-power {
+    font-size: 0.78rem;
+  }
+
+  .edge-piece {
+    width: 1.3rem;
+    height: 1.4rem;
+  }
+
+  .edge-piece-glyph {
     font-size: 0.82rem;
   }
 }
@@ -693,9 +854,11 @@ body {
 }
 
 .power-badge {
+  position: relative;
+  isolation: isolate;
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.45rem;
   width: 100%;
   padding: 0.4rem 0.55rem;
   border-radius: 10px;
@@ -706,6 +869,50 @@ body {
   font-family: inherit;
   text-align: left;
   cursor: default;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.25s ease, filter 0.25s ease, transform 0.2s ease;
+}
+
+.power-badge-icon {
+  width: 1.85rem;
+  height: 1.85rem;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  background: var(--pc);
+  color: #fff;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+}
+
+.power-badge-text {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.2rem 0.35rem;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.power-badge-now {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.power-badge-next {
+  flex-basis: 100%;
+  font-size: 0.95rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.power-badge-text small {
+  margin-left: auto;
+  opacity: 0.75;
+  font-size: 0.7rem;
 }
 
 .power-badge.toggleable {
@@ -728,7 +935,36 @@ body {
 }
 
 .power-badge.active {
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pc) 80%, white);
+  border-color: color-mix(in srgb, var(--pc) 75%, white);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--pc) 30%, transparent),
+    0 0 12px color-mix(in srgb, var(--pc) 35%, transparent);
+  transform: translateY(-1px);
+}
+
+.power-badge.active::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: calc(10px + 2px);
+  padding: 2px;
+  background: conic-gradient(
+    from var(--seat-spin),
+    transparent 0deg,
+    transparent 250deg,
+    color-mix(in srgb, var(--pc) 55%, transparent) 290deg,
+    #fff 325deg,
+    color-mix(in srgb, var(--pc) 85%, white) 345deg,
+    transparent 360deg
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 2;
+  animation: seatOutlineSpin 1.8s linear infinite;
 }
 
 .power-badge.dead {
@@ -1747,6 +1983,88 @@ body[data-training='1'] .coach-popup {
   margin-left: 0.15rem;
 }
 
+/* ——— UI change animations ——— */
+@keyframes uiFade {
+  from {
+    opacity: 0.35;
+    filter: blur(0.4px);
+  }
+  to {
+    opacity: 1;
+    filter: none;
+  }
+}
+
+@keyframes uiEnter {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes uiBump {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.045);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes ledFlash {
+  0% {
+    filter: brightness(1);
+    transform: scale(1);
+  }
+  35% {
+    filter: brightness(1.85);
+    transform: scale(1.12);
+  }
+  100% {
+    filter: brightness(1);
+    transform: scale(1);
+  }
+}
+
+.ui-fade {
+  animation: uiFade 0.32s ease-out;
+}
+
+.ui-enter {
+  animation: uiEnter 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--enter-delay, 0ms);
+}
+
+.ui-bump {
+  animation: uiBump 0.36s ease-out;
+}
+
+.led-flash {
+  animation: ledFlash 0.42s ease-out;
+}
+
+.modal:not([hidden]) .modal-card,
+.modal:not([hidden]) .manual,
+.modal:not([hidden]) .settings {
+  animation: uiEnter 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.replay-bar:not([hidden]) {
+  animation: uiEnter 0.3s ease-out;
+}
+
+.save-error:not([hidden]),
+[data-save-error]:not([hidden]) {
+  animation: uiFade 0.28s ease-out;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .gp-a,
   .gp-b,
@@ -1760,7 +2078,19 @@ body[data-training='1'] .coach-popup {
   .bishop-d,
   .cycle-badge i::before,
   .turn-step,
-  .seat.pc {
+  .seat.pc,
+  .ui-fade,
+  .ui-enter,
+  .ui-bump,
+  .led-flash,
+  .board-seat-card.active::before,
+  .power-badge.active::before,
+  .modal:not([hidden]) .modal-card,
+  .modal:not([hidden]) .manual,
+  .modal:not([hidden]) .settings,
+  .replay-bar:not([hidden]),
+  .save-error:not([hidden]),
+  [data-save-error]:not([hidden]) {
     animation: none !important;
   }
   .gp-a,
@@ -1778,22 +2108,175 @@ body[data-training='1'] .coach-popup {
   .sidebar {
     width: 100%;
     flex: 0 0 auto;
-    max-height: 42vh;
+    height: auto;
+    max-height: min(38vh, 320px);
     border-right: none;
     border-bottom: 1px solid var(--line);
   }
 
   #game-shell.sidebar-collapsed .sidebar {
     max-height: 0;
+    height: 0;
     width: 100%;
+    opacity: 0;
+    border-bottom: none;
+    pointer-events: none;
+  }
+
+  .sidebar-top {
+    padding: 0.55rem 0.7rem 0.35rem;
+  }
+
+  .brand-mini {
+    font-size: 1.2rem;
+  }
+
+  .sidebar-body {
+    gap: 0.4rem;
+    padding: 0 0.7rem 0.65rem;
+  }
+
+  .hud-meta {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.35rem 0.65rem;
+    font-size: 0.82rem;
+  }
+
+  /* Compact 2×2 player grid */
+  .hud-powers {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.35rem;
+  }
+
+  .power-badge {
+    padding: 0.3rem 0.4rem;
+    font-size: 0.74rem;
+    gap: 0.35rem;
+    border-radius: 10px;
+    align-items: flex-start;
+  }
+
+  .power-badge-icon {
+    width: 1.45rem;
+    height: 1.45rem;
+    font-size: 0.75rem;
+    margin-top: 0.1rem;
+  }
+
+  .power-badge-text {
+    gap: 0.05rem 0.25rem;
+  }
+
+  .power-badge-now {
+    font-size: 0.74rem;
+  }
+
+  .power-badge-next {
+    font-size: 0.78rem;
+    letter-spacing: 0;
+  }
+
+  .power-badge-text small {
+    font-size: 0.65rem;
+  }
+
+  .pc-tag {
+    font-size: 0.62rem;
+  }
+
+  /* Piece totals are already on each badge */
+  .hud-pieces {
+    display: none;
+  }
+
+  .hint-wrap {
+    padding: 0.4rem 0.5rem;
+    margin: 0;
+  }
+
+  .hint {
+    font-size: 0.78rem;
+    margin: 0;
+  }
+
+  .hint-detail {
+    font-size: 0.7rem;
+    margin: 0.15rem 0 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* History is bulky on phones — hide; Undo stays */
+  .history-panel {
+    display: none;
+  }
+
+  #btn-undo {
+    align-self: flex-start;
+    margin-top: 0.1rem;
   }
 
   .sidebar-expand {
     top: 0.55rem;
     left: 0.55rem;
+    z-index: 8;
+  }
+
+  /* Collapse control reads as “minimize panel” on phones */
+  #btn-sidebar-collapse {
+    color: transparent;
+    position: relative;
+  }
+
+  #btn-sidebar-collapse::before {
+    content: '⌃';
+    color: var(--ink);
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    font-size: 0.95rem;
   }
 
   #canvas-host {
-    min-height: 58vh;
+    flex: 1 1 auto;
+    min-height: 0;
+    height: auto;
+  }
+
+  .board-seat-card {
+    min-width: 0;
+    padding: 0.22rem 0.35rem 0.22rem 0.22rem;
+    gap: 0.28rem;
+  }
+
+  .board-seat-avatar {
+    width: 1.45rem;
+    height: 1.45rem;
+    font-size: 0.72rem;
+  }
+
+  .board-seat-power {
+    font-size: 0.72rem;
+  }
+}
+
+/* Very small phones: even tighter HUD */
+@media (max-width: 420px) {
+  .sidebar {
+    max-height: min(34vh, 280px);
+  }
+
+  .power-badge-next {
+    font-size: 0.72rem;
+  }
+
+  .hint-detail {
+    display: none;
   }
 }

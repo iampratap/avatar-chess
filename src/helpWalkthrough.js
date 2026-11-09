@@ -2,6 +2,7 @@
  * Guided How-to-Play walkthrough — one instruction per step.
  */
 import { initHelpDiagrams } from './helpDiagrams.js';
+import { $, setTextIfChanged, bumpAnim } from './ui.js';
 
 const STEPS = [
   {
@@ -77,9 +78,6 @@ const STEPS = [
 let stepIndex = 0;
 let bound = false;
 
-function $(id) {
-  return document.getElementById(id);
-}
 
 function renderStep() {
   const step = STEPS[stepIndex];
@@ -95,22 +93,26 @@ function renderStep() {
   const next = $('btn-help-next');
   const panels = document.querySelectorAll('[data-help-panel]');
 
-  if (title) title.textContent = step.title;
-  if (instruct) instruct.textContent = step.instruct;
+  let changed = false;
+  changed = setTextIfChanged(title, step.title, 'ui-fade') || changed;
+  changed = setTextIfChanged(instruct, step.instruct, 'ui-fade') || changed;
   if (detail) {
-    detail.textContent = step.detail || '';
+    changed = setTextIfChanged(detail, step.detail || '', 'ui-fade') || changed;
     detail.hidden = !step.detail;
   }
   if (bullets) {
     if (step.bullets?.length) {
       bullets.hidden = false;
-      bullets.innerHTML = step.bullets.map((b) => `<li>${b}</li>`).join('');
+      bullets.innerHTML = step.bullets
+        .map((b, i) => `<li class="ui-enter" style="--enter-delay:${i * 40}ms">${b}</li>`)
+        .join('');
+      changed = true;
     } else {
       bullets.hidden = true;
       bullets.innerHTML = '';
     }
   }
-  if (counter) counter.textContent = `Step ${stepIndex + 1} of ${STEPS.length}`;
+  setTextIfChanged(counter, `Step ${stepIndex + 1} of ${STEPS.length}`, 'ui-fade');
 
   if (dots) {
     dots.innerHTML = STEPS.map(
@@ -120,15 +122,21 @@ function renderStep() {
   }
 
   panels.forEach((panel) => {
-    panel.hidden = panel.dataset.helpPanel !== step.id;
+    const show = panel.dataset.helpPanel === step.id;
+    const wasHidden = panel.hidden;
+    panel.hidden = !show;
+    if (show && wasHidden) bumpAnim(panel, 'ui-enter');
   });
 
   if (prev) prev.disabled = stepIndex === 0;
   if (next) {
     const last = stepIndex >= STEPS.length - 1;
-    next.textContent = last ? 'Done' : 'Next';
+    setTextIfChanged(next, last ? 'Done' : 'Next', 'ui-fade');
     next.dataset.finish = last ? '1' : '0';
   }
+
+  const card = document.querySelector('.help-step-card') || $('help-modal')?.querySelector('.modal-card');
+  if (changed && card) bumpAnim(card, 'ui-bump');
 
   // Setup board tiles when that panel becomes visible
   if (step.id === 'setup') initHelpDiagrams();

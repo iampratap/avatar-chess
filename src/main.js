@@ -213,6 +213,9 @@ function showResumeBannerIfAny() {
   }
   if (summary) summary.textContent = autosaveSummary(data);
   banner.hidden = false;
+  banner.classList.remove('ui-enter');
+  void banner.offsetWidth;
+  banner.classList.add('ui-enter');
   return true;
 }
 

@@ -49,6 +49,13 @@ export function getPower(player, round) {
   return POWERS[(round - 1 + offset) % 3];
 }
 
+/** Next `count` powers after the current round (upcoming rotations). */
+export function upcomingPowers(player, round, count = 3) {
+  const out = [];
+  for (let i = 1; i <= count; i++) out.push(getPower(player, round + i));
+  return out;
+}
+
 export function powersForRound(round) {
   const out = {};
   for (const p of PLAYERS) out[p] = getPower(p, round);
@@ -117,6 +124,20 @@ export function livingPlayers(state) {
 
 export function currentPlayer(state) {
   return state.players[state.turnIndex];
+}
+
+/** True if this seat already took their turn in the current round. */
+export function hasMovedThisRound(state, player) {
+  const movedCount = state.movesThisRound || 0;
+  if (movedCount <= 0) return false;
+  let idx = state.turnIndex;
+  for (let i = 0; i < movedCount; i++) {
+    do {
+      idx = (idx + PLAYERS.length - 1) % PLAYERS.length;
+    } while ((state.piecesLeft?.[PLAYERS[idx]] ?? 0) === 0);
+    if (PLAYERS[idx] === player) return true;
+  }
+  return false;
 }
 
 export function findPieceSquare(board, pieceId) {
