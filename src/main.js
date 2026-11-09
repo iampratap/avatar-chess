@@ -94,7 +94,9 @@ function syncMuteButtons() {
     btn.setAttribute('aria-pressed', muted ? 'true' : 'false');
     btn.setAttribute('aria-label', title);
     btn.title = title;
-    btn.textContent = label;
+    const labelEl = btn.querySelector('[data-mute-label]');
+    if (labelEl) labelEl.textContent = label;
+    else btn.textContent = label;
   }
 }
 

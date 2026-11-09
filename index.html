@@ -14,7 +14,7 @@
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png" />
     <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
-    <link rel="stylesheet" href="./styles.css?v=welcomemenu1" />
+    <link rel="stylesheet" href="./styles.css?v=hudcoach1" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -198,9 +198,19 @@
           <button type="button" class="icon-btn" id="btn-menu-close" aria-label="Close menu">×</button>
         </header>
         <div class="app-drawer-body game-menu-body">
-          <button type="button" class="menu-item" id="btn-help">User Manual</button>
-          <button type="button" class="menu-item" id="btn-train">Live Training</button>
-          <button type="button" class="menu-item" id="btn-settings">Looks &amp; Models</button>
+          <p class="game-menu-lead">Match tools and look &amp; feel</p>
+          <button type="button" class="menu-item" id="btn-help">
+            <span class="menu-item-label">User Manual</span>
+            <span class="menu-item-desc">Rules, powers, and how to play</span>
+          </button>
+          <button type="button" class="menu-item" id="btn-train">
+            <span class="menu-item-label">Live Training</span>
+            <span class="menu-item-desc">Guided lessons on the board</span>
+          </button>
+          <button type="button" class="menu-item" id="btn-settings">
+            <span class="menu-item-label">Looks &amp; Models</span>
+            <span class="menu-item-desc">Theme, board, and piece kits</span>
+          </button>
           <button
             type="button"
             class="menu-item mute-btn"
@@ -209,9 +219,13 @@
             title="Mute sound"
             aria-label="Mute sound"
           >
-            Sound on
+            <span class="menu-item-label" data-mute-label>Sound on</span>
+            <span class="menu-item-desc">Toggle game audio</span>
           </button>
-          <button type="button" class="menu-item danger" id="btn-restart">Restart</button>
+          <button type="button" class="menu-item danger" id="btn-restart">
+            <span class="menu-item-label">Restart</span>
+            <span class="menu-item-desc">Leave match and return home</span>
+          </button>
         </div>
       </aside>
 
@@ -242,39 +256,49 @@
         </div>
 
         <div class="sidebar-body">
-          <div class="hud-meta">
-            <span id="hud-round">Round 1</span>
-            <span id="hud-zone" class="hud-zone" hidden>Zone 8×8</span>
-            <span id="hud-turn">Player A</span>
-          </div>
-          <div id="blitz-hud" class="blitz-hud" hidden>
-            <span id="blitz-label" class="blitz-label">20s</span>
-            <div class="blitz-track" aria-hidden="true"><div id="blitz-bar" class="blitz-bar"></div></div>
-          </div>
-          <div id="dice-hud" class="dice-hud" hidden>
-            <span class="dice-kicker">Dice</span>
-            <span id="dice-face" class="dice-face" aria-hidden="true">?</span>
-            <span id="dice-power" class="dice-power">Roll…</span>
-          </div>
-          <div id="hud-powers" class="hud-powers"></div>
-          <div id="hud-pieces" class="hud-pieces"></div>
+          <section class="hud-section hud-status" aria-label="Match status">
+            <p class="hud-section-label">Status</p>
+            <div class="hud-meta">
+              <span id="hud-round">Round 1</span>
+              <span id="hud-zone" class="hud-zone" hidden>Zone 8×8</span>
+              <span id="hud-turn">Player A</span>
+            </div>
+            <div id="blitz-hud" class="blitz-hud" hidden>
+              <span id="blitz-label" class="blitz-label">20s</span>
+              <div class="blitz-track" aria-hidden="true"><div id="blitz-bar" class="blitz-bar"></div></div>
+            </div>
+            <div id="dice-hud" class="dice-hud" hidden>
+              <span class="dice-kicker">Dice</span>
+              <span id="dice-face" class="dice-face" aria-hidden="true">?</span>
+              <span id="dice-power" class="dice-power">Roll…</span>
+            </div>
+          </section>
 
-          <div class="hint-wrap">
+          <section class="hud-section" aria-label="Players">
+            <p class="hud-section-label">Players</p>
+            <div id="hud-powers" class="hud-powers"></div>
+            <div id="hud-pieces" class="hud-pieces"></div>
+          </section>
+
+          <section class="hud-section hint-wrap" aria-label="Hints">
+            <p class="hud-section-label">Hint</p>
             <p id="hint-bar" class="hint">Select one of your pawns</p>
             <p id="hint-detail" class="hint-detail"></p>
-          </div>
+          </section>
 
-          <section class="history-panel" aria-label="Move history">
+          <section class="hud-section history-panel" aria-label="Move history">
             <div class="history-head">
-              <h3>History</h3>
+              <p class="hud-section-label">History</p>
               <span id="history-count">0 moves</span>
             </div>
             <ol id="history-list" class="history-list"></ol>
             <p id="history-empty" class="history-empty">No moves yet</p>
           </section>
 
-          <button type="button" class="btn small" id="btn-undo" disabled>Undo</button>
-          <p class="error hud-error" data-save-error hidden></p>
+          <div class="hud-footer">
+            <button type="button" class="btn small" id="btn-undo" disabled>Undo</button>
+            <p class="error hud-error" data-save-error hidden></p>
+          </div>
 
           <div id="replay-bar" class="replay-bar" hidden>
             <span id="replay-label">Replay · move 0/0</span>
@@ -311,14 +335,27 @@
         <!-- Live training coach popup -->
         <div id="coach-popup" class="coach-popup" hidden role="dialog" aria-live="polite" aria-labelledby="coach-title">
           <div class="coach-card">
-            <p class="coach-kicker" id="coach-kicker">Training</p>
+            <div class="coach-card-top">
+              <p class="coach-kicker" id="coach-kicker">Training</p>
+              <div
+                class="coach-progress"
+                id="coach-progress"
+                role="progressbar"
+                aria-valuemin="1"
+                aria-valuenow="1"
+                aria-valuemax="1"
+                hidden
+              >
+                <span class="coach-progress-bar" id="coach-progress-bar"></span>
+              </div>
+            </div>
             <h3 id="coach-title">Lesson</h3>
             <p class="coach-body" id="coach-body"></p>
             <p class="coach-action" id="coach-action"></p>
             <p class="coach-nudge" id="coach-nudge" hidden></p>
             <div class="coach-actions">
               <button type="button" class="btn" id="btn-coach-manual">Manual</button>
-              <button type="button" class="btn" id="btn-coach-exit">Exit training</button>
+              <button type="button" class="btn" id="btn-coach-exit">Exit</button>
               <button type="button" class="btn primary" id="btn-coach-continue" hidden>Keep practicing</button>
             </div>
           </div>
@@ -627,7 +664,7 @@
 
     <div id="toast-host" class="toast-host" aria-live="polite"></div>
 
-    <script type="module" src="./src/main.js?v=welcomemenu1"></script>
+    <script type="module" src="./src/main.js?v=hudcoach1"></script>
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {

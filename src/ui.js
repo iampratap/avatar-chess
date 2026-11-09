@@ -166,15 +166,28 @@ export function showCoachPopup(payload) {
   const action = $('coach-action');
   const nudge = $('coach-nudge');
   const cont = $('btn-coach-continue');
+  const progress = $('coach-progress');
+  const progressBar = $('coach-progress-bar');
   const card = root.querySelector('.coach-card') || root;
 
+  const step = Number(payload.step) || 1;
+  const total = Math.max(1, Number(payload.total) || 1);
   const kickerText = payload.completed
     ? 'Training complete'
-    : `Training · lesson ${payload.step} of ${payload.total}`;
+    : `Lesson ${step} of ${total}`;
   let changed = false;
   changed = setTextIfChanged(kicker, kickerText, 'ui-fade') || changed;
   changed = setTextIfChanged(title, payload.title || '', 'ui-fade') || changed;
   changed = setTextIfChanged(body, payload.body || '', 'ui-fade') || changed;
+
+  if (progress && progressBar) {
+    const pct = payload.completed ? 100 : Math.max(4, Math.min(100, (step / total) * 100));
+    progress.hidden = false;
+    progress.setAttribute('aria-valuenow', String(payload.completed ? total : step));
+    progress.setAttribute('aria-valuemax', String(total));
+    progressBar.style.width = `${pct}%`;
+    progress.classList.toggle('is-complete', !!payload.completed);
+  }
 
   if (title) {
     if (payload.color) title.style.color = payload.color;
@@ -189,6 +202,7 @@ export function showCoachPopup(payload) {
     nudge.hidden = !payload.nudge;
   }
   if (cont) cont.hidden = !payload.completed;
+  card?.classList.toggle('is-complete', !!payload.completed);
   if (wasHidden || changed) bumpAnim(card, 'ui-enter');
   document.body.dataset.training = payload.active || payload.completed ? '1' : '';
 }
