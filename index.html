@@ -14,7 +14,7 @@
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png" />
     <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
-    <link rel="stylesheet" href="./styles.css?v=seatspin2" />
+    <link rel="stylesheet" href="./styles.css?v=joy1" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -53,6 +53,27 @@
           <p class="picker-hint">Seats A→D: humans first, remaining seats are PC.</p>
         </div>
 
+        <div class="match-options">
+          <div class="humans-picker compact" role="group" aria-label="PC difficulty">
+            <p class="picker-label">PC difficulty</p>
+            <div class="picker-options three">
+              <label class="picker-opt"><input type="radio" name="difficulty" value="easy" /> Easy</label>
+              <label class="picker-opt"><input type="radio" name="difficulty" value="normal" checked /> Normal</label>
+              <label class="picker-opt"><input type="radio" name="difficulty" value="hard" /> Hard</label>
+            </div>
+          </div>
+          <div class="humans-picker compact" role="group" aria-label="Blitz timer">
+            <p class="picker-label">Blitz (per turn)</p>
+            <div class="picker-options three">
+              <label class="picker-opt"><input type="radio" name="blitz" value="off" checked /> Off</label>
+              <label class="picker-opt"><input type="radio" name="blitz" value="20" /> 20s</label>
+              <label class="picker-opt"><input type="radio" name="blitz" value="45" /> 45s</label>
+            </div>
+          </div>
+        </div>
+
+        <div id="career-panel" class="career-panel" aria-label="Career stats"></div>
+
         <div id="resume-banner" class="resume-banner" hidden>
           <p class="resume-title">Continue your game?</p>
           <p id="resume-summary" class="resume-summary"></p>
@@ -64,6 +85,7 @@
 
         <div class="welcome-actions">
           <button type="button" class="btn primary xl" id="btn-play">Play</button>
+          <button type="button" class="btn xl" id="btn-daily">Daily</button>
           <button type="button" class="btn xl" id="btn-welcome-help">Manual</button>
           <button type="button" class="btn xl" id="btn-welcome-settings">Looks</button>
           <button
@@ -77,7 +99,12 @@
             Sound on
           </button>
         </div>
+        <div class="welcome-actions welcome-share-row">
+          <button type="button" class="btn" id="btn-import-replay">Import replay</button>
+          <input type="file" id="import-replay-file" accept="application/json,.json" hidden />
+        </div>
         <p class="picker-hint welcome-theme-summary" id="welcome-theme-summary">Dark · Wooden · Classic Sculpt</p>
+        <p id="daily-hint" class="picker-hint" hidden></p>
         <p class="error" data-save-error hidden></p>
 
         <footer class="credit-footer">
@@ -141,6 +168,10 @@
           <div class="hud-meta">
             <span id="hud-round">Round 1</span>
             <span id="hud-turn">Player A</span>
+          </div>
+          <div id="blitz-hud" class="blitz-hud" hidden>
+            <span id="blitz-label" class="blitz-label">20s</span>
+            <div class="blitz-track" aria-hidden="true"><div id="blitz-bar" class="blitz-bar"></div></div>
           </div>
           <div id="hud-powers" class="hud-powers"></div>
           <div id="hud-pieces" class="hud-pieces"></div>
@@ -484,16 +515,22 @@
       <div class="modal-card winner">
         <h2>Victory</h2>
         <p id="winner-text">Player A wins!</p>
+        <p id="winner-streak" class="winner-streak" hidden></p>
         <p id="winner-history-meta" class="winner-meta"></p>
         <div class="welcome-actions">
-          <button type="button" class="btn primary" id="btn-winner-again">Play Again</button>
+          <button type="button" class="btn primary" id="btn-winner-again">Rematch</button>
+          <button type="button" class="btn" id="btn-winner-shuffle">Rematch · shuffle</button>
           <button type="button" class="btn" id="btn-winner-replay">Watch Replay</button>
+          <button type="button" class="btn" id="btn-winner-share">Copy replay link</button>
+          <button type="button" class="btn" id="btn-winner-download">Download replay</button>
           <button type="button" class="btn" id="btn-winner-restart">Back to Welcome</button>
         </div>
       </div>
     </div>
 
-    <script type="module" src="./src/main.js?v=seatspin2"></script>
+    <div id="toast-host" class="toast-host" aria-live="polite"></div>
+
+    <script type="module" src="./src/main.js?v=joy1"></script>
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {

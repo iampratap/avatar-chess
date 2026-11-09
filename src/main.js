@@ -7,15 +7,24 @@ import {
   passTurn,
   isAiPlayer,
   togglePlayerController,
+  getPower,
+  listPlayerMoves,
+  currentPlayer,
 } from './game.js';
 import { chooseAiMove, aiThinkDelayMs } from './ai.js';
 import { createBoard3D } from './board3d.js';
 import {
   applyStatusPayload,
+  applyReplayPayload,
   autosaveGame,
   loadAutosave,
   clearAutosave,
   autosaveSummary,
+  exportReplay,
+  copyReplayLink,
+  decodeReplayHash,
+  parseJsonFile,
+  readFileAsText,
 } from './save.js';
 import { createReplayController } from './replay.js';
 import {
@@ -38,6 +47,9 @@ import {
   closeSidebarMenu,
   showCoachPopup,
   hideCoachPopup,
+  showToast,
+  renderCareerPanel,
+  updateBlitzHud,
 } from './ui.js';
 import {
   saveThemePrefs,
@@ -46,6 +58,19 @@ import {
 } from './themes.js';
 import { unlockAudio, isMuted, toggleMute, sfx } from './sound.js';
 import { createTrainingSession } from './training.js';
+import {
+  loadPrefs,
+  savePrefs,
+  getDifficulty,
+  getBlitzSeconds,
+  recordMatchEnd,
+  markTrainingComplete,
+  careerSummary,
+  achievementProgress,
+  shuffleControllers,
+  isDailyDoneToday,
+  todayKey,
+} from './meta.js';
 
 const host = $('canvas-host');
 const board = createBoard3D(host);
@@ -142,10 +167,117 @@ let aiTimer = null;
 let aiGeneration = 0;
 /** @type {ReturnType<typeof createTrainingSession>|null} */
 let training = null;
+let matchFlags = { daily: false, recorded: false, elimThisMatch: 0 };
+let blitzTimer = null;
+let blitzDeadline = 0;
+let blitzTotal = 0;
 
 function isTraining() {
   return !!training;
 }
+
+
+function selectedRadio(name, fallback) {
+  const checked = document.querySelector(`input[name="${name}"]:checked`);
+  return checked ? checked.value : fallback;
+}
+
+function syncPrefsFromUi() {
+  return savePrefs({
+    difficulty: selectedRadio('difficulty', 'normal'),
+    blitz: selectedRadio('blitz', 'off'),
+  });
+}
+
+function applyPrefsToUi() {
+  const prefs = loadPrefs();
+  for (const el of document.querySelectorAll('input[name="difficulty"]')) {
+    el.checked = el.value === prefs.difficulty;
+  }
+  for (const el of document.querySelectorAll('input[name="blitz"]')) {
+    el.checked = el.value === prefs.blitz;
+  }
+}
+
+function refreshCareerUi() {
+  renderCareerPanel(careerSummary(), achievementProgress());
+  const hint = $('daily-hint');
+  if (hint) {
+    if (isDailyDoneToday()) {
+      const s = careerSummary();
+      hint.hidden = false;
+      hint.textContent = s.dailyBestMoves
+        ? `Daily cleared today · best ${s.dailyBestMoves} moves`
+        : 'Daily challenge cleared today';
+    } else {
+      hint.hidden = false;
+      hint.textContent = `Daily challenge · ${todayKey()} · 1 human vs Hard PC`;
+    }
+  }
+}
+
+function clearBlitzTimer() {
+  if (blitzTimer) {
+    clearInterval(blitzTimer);
+    blitzTimer = null;
+  }
+  blitzDeadline = 0;
+  updateBlitzHud(0, 0);
+}
+
+function startBlitzClock() {
+  clearBlitzTimer();
+  if (mode !== 'playing' || isTraining() || state.winner) return;
+  const total = getBlitzSeconds();
+  blitzTotal = total;
+  if (!total || isAiPlayer(state)) {
+    updateBlitzHud(0, 0);
+    return;
+  }
+  blitzDeadline = performance.now() + total * 1000;
+  updateBlitzHud(total, total);
+  blitzTimer = setInterval(() => {
+    if (mode !== 'playing' || state.winner || isAiPlayer(state)) {
+      clearBlitzTimer();
+      return;
+    }
+    const left = (blitzDeadline - performance.now()) / 1000;
+    updateBlitzHud(left, blitzTotal);
+    if (left <= 5.05 && left > 4.7) sfx.tick();
+    if (left <= 0) {
+      clearBlitzTimer();
+      onBlitzTimeout();
+    }
+  }, 100);
+}
+
+async function onBlitzTimeout() {
+  if (mode !== 'playing' || state.winner || isTraining() || isAiPlayer(state)) return;
+  showToast('Time! Turn passed.');
+  sfx.ui();
+  const moves = listPlayerMoves(state, currentPlayer(state));
+  clearAiTimer();
+  aiGeneration += 1;
+  inputLocked = false;
+  if (moves.length) {
+    const pick = moves[Math.floor(Math.random() * moves.length)];
+    const next = applyMove(state, pick.from, pick.to);
+    state = next;
+    const last = state.history[state.history.length - 1];
+    await afterMoveEffects(last);
+  } else {
+    state = passTurn(state);
+    await afterMoveEffects(null);
+  }
+}
+
+function celebrateAchievements(list) {
+  for (const a of list || []) {
+    sfx.achieve();
+    showToast(`Badge unlocked: ${a.label}`);
+  }
+}
+
 
 function syncCoach() {
   if (!training) {
@@ -220,6 +352,7 @@ function showResumeBannerIfAny() {
 }
 
 async function afterMoveEffects(move) {
+  clearBlitzTimer();
   if (move) {
     if (move.captured) sfx.capture();
     else sfx.move();
@@ -233,9 +366,26 @@ async function afterMoveEffects(move) {
   });
   await board.waitForTweens();
 
-  // 2) Capture spark
+  // 2) Capture spark / elimination drama
   if (move?.captured) {
-    await board.powerFx.playShort();
+    const victim = move.captured.player || move.captured;
+    const eliminated =
+      typeof victim === 'string' && (state.piecesLeft?.[victim] ?? 1) === 0;
+    try {
+      navigator.vibrate?.(eliminated ? [30, 40, 55] : 18);
+    } catch {
+      /* ignore */
+    }
+    if (eliminated) {
+      matchFlags.elimThisMatch += 1;
+      sfx.eliminate();
+      board.nudgeCamera(1.6);
+      showToast(`Player ${victim} eliminated!`);
+      await board.powerFx.playShort();
+    } else {
+      board.nudgeCamera(0.9);
+      await board.powerFx.playShort();
+    }
   }
 
   // 3) Round change — morph into new powers (no round-finish FX)
@@ -246,16 +396,48 @@ async function afterMoveEffects(move) {
     if (state.winner) {
       training?.stop();
       syncCoach();
+      celebrateAchievements(markTrainingComplete());
+      refreshCareerUi();
     }
     return;
   }
   if (state.winner) {
     clearAutosave();
+    clearBlitzTimer();
     sfx.win();
-    showWinner(state.winner, state.history.length);
+    finishMatchMeta();
     return;
   }
   scheduleAiIfNeeded();
+  startBlitzClock();
+}
+
+function finishMatchMeta() {
+  if (matchFlags.recorded) {
+    showWinner(state.winner, state.history.length);
+    return;
+  }
+  matchFlags.recorded = true;
+  const winner = state.winner;
+  const humanWon = !!(winner && state.controllers?.[winner] === 'human');
+  const prefs = loadPrefs();
+  const result = recordMatchEnd({
+    winner,
+    humanWon,
+    eliminations: matchFlags.elimThisMatch,
+    winPower: winner ? getPower(winner, state.round) : null,
+    difficulty: prefs.difficulty,
+    blitzSeconds: getBlitzSeconds(),
+    isDaily: matchFlags.daily,
+    moveCount: state.history.length,
+  });
+  showWinner(winner, state.history.length, {
+    humanWon,
+    streak: result.stats.currentStreak,
+    daily: matchFlags.daily && humanWon,
+  });
+  celebrateAchievements(result.unlockedNow);
+  refreshCareerUi();
 }
 
 function scheduleAiIfNeeded() {
@@ -275,13 +457,13 @@ function scheduleAiIfNeeded() {
     aiTimer = null;
     if (gen !== aiGeneration || mode !== 'playing') return;
     await runAiTurn(gen);
-  }, aiThinkDelayMs({ fast: chainAi }));
+  }, aiThinkDelayMs({ fast: chainAi, difficulty: getDifficulty() }));
 }
 
 async function runAiTurn(gen) {
   if (gen !== aiGeneration || mode !== 'playing' || state.winner) return;
 
-  const move = chooseAiMove(state);
+  const move = chooseAiMove(state, { difficulty: getDifficulty() });
   if (!move) {
     state = { ...passTurn(state), aiThinking: false };
     inputLocked = false;
@@ -296,8 +478,9 @@ async function runAiTurn(gen) {
   await afterMoveEffects(last);
 }
 
-function enterPlaying(nextState, { asTraining = false } = {}) {
+function enterPlaying(nextState, { asTraining = false, daily = false, keepMatchFlags = false } = {}) {
   clearAiTimer();
+  clearBlitzTimer();
   if (replay) {
     replay.destroy();
     replay = null;
@@ -309,6 +492,13 @@ function enterPlaying(nextState, { asTraining = false } = {}) {
   }
   mode = 'playing';
   state = { ...nextState, aiThinking: false };
+  if (!keepMatchFlags) {
+    matchFlags = {
+      daily: !!daily,
+      recorded: false,
+      elimThisMatch: 0,
+    };
+  }
   hideWinner();
   setSaveError('');
   showScreen('playing');
@@ -317,9 +507,12 @@ function enterPlaying(nextState, { asTraining = false } = {}) {
     board.resize();
     refresh();
     if (asTraining) syncCoach();
-    else scheduleAiIfNeeded();
+    else {
+      scheduleAiIfNeeded();
+      startBlitzClock();
+    }
   });
-  if (!asTraining && state.winner) showWinner(state.winner, state.history.length);
+  if (!asTraining && state.winner) finishMatchMeta();
 }
 
 function enterTraining() {
@@ -345,6 +538,7 @@ function exitTraining({ keepPlaying = false } = {}) {
 
 function enterWelcome() {
   clearAiTimer();
+  clearBlitzTimer();
   aiGeneration += 1;
   if (replay) {
     replay.destroy();
@@ -356,14 +550,18 @@ function enterWelcome() {
   mode = 'welcome';
   state = createInitialState();
   inputLocked = false;
+  matchFlags = { daily: false, recorded: false, elimThisMatch: 0 };
   hideWinner();
   setSaveError('');
   showScreen('welcome');
   showResumeBannerIfAny();
+  applyPrefsToUi();
+  refreshCareerUi();
 }
 
 function enterReplay(moves) {
   clearAiTimer();
+  clearBlitzTimer();
   aiGeneration += 1;
   if (replay) replay.destroy();
   mode = 'replay';
@@ -462,6 +660,7 @@ $('btn-mute').addEventListener('click', onMuteClick);
 
 $('btn-play').addEventListener('click', () => {
   unlockAudio();
+  syncPrefsFromUi();
   if (loadAutosave()) {
     const ok = confirm('Start a new game? Your saved progress will be discarded.');
     if (!ok) return;
@@ -469,7 +668,54 @@ $('btn-play').addEventListener('click', () => {
     hideResumeBanner();
   }
   sfx.ui();
-  enterPlaying(createInitialState({ humans: selectedHumans() }));
+  enterPlaying(createInitialState({ humans: selectedHumans() }), { daily: false });
+});
+
+$('btn-daily')?.addEventListener('click', () => {
+  unlockAudio();
+  savePrefs({ difficulty: 'hard', blitz: 'off' });
+  applyPrefsToUi();
+  if (loadAutosave()) {
+    const ok = confirm('Start Daily Challenge? Your saved progress will be discarded.');
+    if (!ok) return;
+    clearAutosave();
+    hideResumeBanner();
+  }
+  sfx.ui();
+  // Always 1 human vs 3 Hard PC
+  for (const el of document.querySelectorAll('input[name="humans"]')) {
+    el.checked = el.value === '1';
+  }
+  enterPlaying(createInitialState({ humans: 1 }), { daily: true });
+  showToast(isDailyDoneToday() ? 'Daily already cleared — play for a better score!' : 'Daily Challenge: beat Hard PC');
+});
+
+for (const name of ['difficulty', 'blitz']) {
+  document.querySelectorAll(`input[name="${name}"]`).forEach((el) => {
+    el.addEventListener('change', () => {
+      syncPrefsFromUi();
+      sfx.ui();
+    });
+  });
+}
+
+$('btn-import-replay')?.addEventListener('click', () => {
+  $('import-replay-file')?.click();
+});
+
+$('import-replay-file')?.addEventListener('change', async (e) => {
+  const file = e.target.files?.[0];
+  e.target.value = '';
+  if (!file) return;
+  try {
+    const textFile = await readFileAsText(file);
+    const data = parseJsonFile(textFile);
+    const result = applyReplayPayload(data);
+    enterReplay(result.moves);
+    showToast('Replay loaded');
+  } catch (err) {
+    setSaveError(err.message || 'Could not import replay.');
+  }
 });
 
 $('btn-resume').addEventListener('click', () => {
@@ -626,9 +872,33 @@ $('btn-restart').addEventListener('click', () => {
 $('btn-winner-again').addEventListener('click', () => {
   clearAutosave();
   hideWinner();
-  // Same seat setup (humans / PC) as the finished match
   const controllers = state.controllers ? { ...state.controllers } : undefined;
-  enterPlaying(createInitialState({ humans: selectedHumans(), controllers }));
+  const daily = matchFlags.daily;
+  enterPlaying(createInitialState({ humans: selectedHumans(), controllers }), { daily });
+});
+
+$('btn-winner-shuffle')?.addEventListener('click', () => {
+  clearAutosave();
+  hideWinner();
+  const controllers = shuffleControllers(state.controllers || {});
+  enterPlaying(createInitialState({ controllers }), { daily: false });
+  showToast('Seats shuffled');
+});
+
+$('btn-winner-share')?.addEventListener('click', async () => {
+  try {
+    await copyReplayLink(state);
+    showToast('Replay link copied');
+    sfx.ui();
+  } catch (err) {
+    setSaveError(err.message || 'Could not copy link.');
+  }
+});
+
+$('btn-winner-download')?.addEventListener('click', () => {
+  exportReplay(state);
+  showToast('Replay downloaded');
+  sfx.ui();
 });
 
 $('btn-winner-restart').addEventListener('click', () => {
@@ -649,8 +919,23 @@ $('replay-scrub').addEventListener('input', (e) => {
   replay?.setIndex(Number(e.target.value));
 });
 
+applyPrefsToUi();
+refreshCareerUi();
 showScreen('welcome');
 showResumeBannerIfAny();
+
+// Deep-link shared replay (#r=...)
+try {
+  const shared = decodeReplayHash(location.hash);
+  if (shared?.kind === 'replay') {
+    const result = applyReplayPayload(shared);
+    history.replaceState(null, '', location.pathname + location.search);
+    enterReplay(result.moves);
+    showToast('Opened shared replay');
+  }
+} catch (err) {
+  setSaveError(err.message || 'Shared replay link is invalid.');
+}
 
 window.addEventListener('beforeunload', () => {
   if (mode === 'playing' && !isTraining() && !state.winner) autosaveGame(state);

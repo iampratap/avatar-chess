@@ -722,6 +722,36 @@ export function createBoard3D(container) {
     controls.update();
   }
 
+  /** Short dramatic camera punch (capture / elimination). */
+  function nudgeCamera(strength = 1) {
+    const s = 0.22 * strength;
+    const ox = camera.position.x;
+    const oy = camera.position.y;
+    const oz = camera.position.z;
+    const nx = ox + (Math.random() - 0.5) * s;
+    const ny = oy + s * 0.4;
+    const nz = oz + (Math.random() - 0.5) * s;
+    const start = performance.now();
+    const dur = 240;
+    function step(now) {
+      const t = Math.min(1, (now - start) / dur);
+      // Out then ease back
+      const punch = Math.sin(t * Math.PI);
+      camera.position.set(
+        ox + (nx - ox) * punch,
+        oy + (ny - oy) * punch,
+        oz + (nz - oz) * punch
+      );
+      controls.update();
+      if (t < 1) requestAnimationFrame(step);
+      else {
+        camera.position.set(ox, oy, oz);
+        controls.update();
+      }
+    }
+    requestAnimationFrame(step);
+  }
+
   function setCoachFocus(player) {
     coachFocusPlayer = player || null;
   }
@@ -737,6 +767,7 @@ export function createBoard3D(container) {
     setUiTheme: applyUiScene,
     setCoachFocus,
     resetCameraForPlayerA,
+    nudgeCamera,
     projectSeatOverlays,
     resize: onResize,
     domElement: renderer.domElement,

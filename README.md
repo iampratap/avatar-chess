@@ -48,6 +48,12 @@ Each later round shifts every player to the next power (Rook → Knight → Bish
 
 - 3D board with orbit camera and animated moves / morphs / power-switch FX
 - Human + PC seats (toggle Human/PC mid-game from the sidebar power list)
+- **PC difficulty** — Easy / Normal / Hard
+- **Blitz** — optional 20s / 45s per-turn clock
+- **Daily Challenge** — 1 human vs Hard PC (local, once per day tracking)
+- Career stats, win streaks, and local achievement badges
+- Rematch · shuffle seats, capture/elimination juice, win fanfare
+- Shareable / downloadable / importable match replays (including `#r=` links)
 - **Looks & Models** — app theme (Dark / White), board themes, piece kits, live 3D preview
 - Autosave / resume in the browser (`localStorage`)
 - Match replay after a win
@@ -88,6 +94,7 @@ web/
     replay.js
     sound.js
     powerFx.js
+    meta.js        # Local prefs, stats, streaks, achievements
 ```
 
 ## Tips

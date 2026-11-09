@@ -137,6 +137,20 @@ export const sfx = {
     tone({ type: 'square', freq: 220, freqEnd: 90, duration: 0.18, gain: 0.1, delay: 0.01 });
     tone({ type: 'sine', freq: 540, freqEnd: 180, duration: 0.14, gain: 0.08, delay: 0.04 });
   },
+  eliminate() {
+    noiseBurst({ duration: 0.18, gain: 0.2, filterFreq: 700 });
+    tone({ type: 'sawtooth', freq: 160, freqEnd: 55, duration: 0.32, gain: 0.12 });
+    tone({ type: 'triangle', freq: 660, freqEnd: 220, duration: 0.28, gain: 0.09, delay: 0.05 });
+    tone({ type: 'sine', freq: 880, freqEnd: 440, duration: 0.35, gain: 0.07, delay: 0.12 });
+  },
+  tick() {
+    tone({ type: 'square', freq: 880, duration: 0.04, gain: 0.05 });
+  },
+  achieve() {
+    tone({ type: 'triangle', freq: 523, duration: 0.14, gain: 0.1 });
+    tone({ type: 'sine', freq: 659, duration: 0.16, gain: 0.08, delay: 0.08 });
+    tone({ type: 'triangle', freq: 784, duration: 0.22, gain: 0.1, delay: 0.16 });
+  },
   powerSwitch() {
     // Soft arcane swell
     tone({ type: 'sine', freq: 180, freqEnd: 360, duration: 0.35, gain: 0.1 });
@@ -149,10 +163,11 @@ export const sfx = {
     tone({ type: 'triangle', freq: 480, freqEnd: 360, duration: 0.18, gain: 0.06, delay: 0.06 });
   },
   win() {
-    const notes = [392, 494, 587, 784];
+    const notes = [392, 494, 587, 784, 988];
     notes.forEach((f, i) => {
-      tone({ type: 'triangle', freq: f, duration: 0.28, gain: 0.12, delay: i * 0.12 });
-      tone({ type: 'sine', freq: f * 2, duration: 0.22, gain: 0.04, delay: i * 0.12 + 0.02 });
+      tone({ type: 'triangle', freq: f, duration: 0.32, gain: 0.13, delay: i * 0.11 });
+      tone({ type: 'sine', freq: f * 2, duration: 0.26, gain: 0.05, delay: i * 0.11 + 0.02 });
     });
+    noiseBurst({ duration: 0.25, gain: 0.08, delay: 0.35, filterFreq: 2200 });
   },
 };

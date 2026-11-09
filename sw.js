@@ -1,5 +1,5 @@
 /* Avatar Chess — offline-friendly service worker */
-const CACHE_VERSION = 'avatar-chess-seatspin2';
+const CACHE_VERSION = 'avatar-chess-joy1';
 const PRECACHE = [
   './',
   './index.html',
@@ -23,6 +23,7 @@ const PRECACHE = [
   './src/replay.js',
   './src/sound.js',
   './src/powerFx.js',
+  './src/meta.js',
 ];
 
 self.addEventListener('install', (event) => {

@@ -167,7 +167,7 @@ export function hideCoachPopup() {
   if (cont) cont.hidden = true;
 }
 
-export function showWinner(player, historyLength = 0) {
+export function showWinner(player, historyLength = 0, extra = {}) {
   const el = $('winner-modal');
   el.hidden = false;
   setTextIfChanged(
@@ -179,18 +179,103 @@ export function showWinner(player, historyLength = 0) {
   );
   const meta = $('winner-history-meta');
   if (meta) {
-    setTextIfChanged(
-      meta,
-      historyLength > 0
-        ? `${historyLength} move${historyLength === 1 ? '' : 's'} recorded — watch the replay.`
-        : 'No moves to replay.',
-      'ui-fade'
-    );
+    const parts = [];
+    if (historyLength > 0) {
+      parts.push(
+        `${historyLength} move${historyLength === 1 ? '' : 's'} recorded — watch the replay.`
+      );
+    } else {
+      parts.push('No moves to replay.');
+    }
+    if (extra.streak != null && extra.humanWon) {
+      parts.push(`Win streak: ${extra.streak}`);
+    }
+    if (extra.daily) parts.push('Daily challenge cleared!');
+    setTextIfChanged(meta, parts.join(' '), 'ui-fade');
+  }
+  const streakEl = $('winner-streak');
+  if (streakEl) {
+    if (extra.humanWon && extra.streak > 0) {
+      streakEl.hidden = false;
+      streakEl.textContent = extra.streak === 1 ? 'First win of the streak' : `${extra.streak} wins in a row`;
+    } else {
+      streakEl.hidden = true;
+    }
   }
   const replayBtn = $('btn-winner-replay');
   if (replayBtn) replayBtn.disabled = historyLength <= 0;
+  const shareBtn = $('btn-winner-share');
+  if (shareBtn) shareBtn.disabled = historyLength <= 0;
   const card = el.querySelector('.modal-card');
   if (card) bumpAnim(card, 'ui-enter');
+}
+
+export function showToast(message, { ms = 2600 } = {}) {
+  let host = $('toast-host');
+  if (!host) {
+    host = document.createElement('div');
+    host.id = 'toast-host';
+    host.className = 'toast-host';
+    host.setAttribute('aria-live', 'polite');
+    document.body.appendChild(host);
+  }
+  const el = document.createElement('div');
+  el.className = 'toast ui-enter';
+  el.textContent = message;
+  host.appendChild(el);
+  setTimeout(() => {
+    el.classList.add('toast-out');
+    setTimeout(() => el.remove(), 280);
+  }, ms);
+}
+
+export function updateCareerPanel() {
+  const root = $('career-panel');
+  if (!root) return;
+  // Filled from main via renderCareerPanel to avoid circular meta import weight — keep DOM helper here
+}
+
+export function renderCareerPanel(summary, achievements = []) {
+  const root = $('career-panel');
+  if (!root) return;
+  const unlocked = achievements.filter((a) => a.unlocked).length;
+  root.innerHTML = `
+    <div class="career-stats">
+      <span><b>${summary.wins}</b> wins</span>
+      <span><b>${summary.streak}</b> streak</span>
+      <span><b>${summary.bestStreak}</b> best</span>
+      <span><b>${summary.eliminations}</b> KOs</span>
+      <span><b>${unlocked}</b>/${achievements.length || 7} badges</span>
+    </div>
+    <p class="career-fav">Favorite power: ${summary.favoritePower}</p>
+    <div class="career-badges" aria-label="Achievements">
+      ${achievements
+        .map(
+          (a) =>
+            `<span class="career-badge ${a.unlocked ? 'on' : ''}" title="${a.desc}">${a.label}</span>`
+        )
+        .join('')}
+    </div>
+  `;
+}
+
+export function updateBlitzHud(secondsLeft, totalSeconds) {
+  const wrap = $('blitz-hud');
+  if (!wrap) return;
+  if (!totalSeconds || totalSeconds <= 0) {
+    wrap.hidden = true;
+    return;
+  }
+  wrap.hidden = false;
+  const label = $('blitz-label');
+  const bar = $('blitz-bar');
+  const sec = Math.max(0, Math.ceil(secondsLeft));
+  if (label) label.textContent = `${sec}s`;
+  if (bar) {
+    const pct = Math.max(0, Math.min(1, secondsLeft / totalSeconds));
+    bar.style.width = `${pct * 100}%`;
+    wrap.classList.toggle('blitz-urgent', sec <= 5);
+  }
 }
 
 export function hideWinner() {

@@ -19,8 +19,8 @@ function downloadJson(filename, data) {
   URL.revokeObjectURL(url);
 }
 
-export function exportReplay(state) {
-  const payload = {
+export function buildReplayPayload(state) {
+  return {
     version: VERSION,
     kind: 'replay',
     title: 'Avatar Chess',
@@ -29,8 +29,57 @@ export function exportReplay(state) {
     moves: state.history,
     result: state.winner ? { winner: state.winner } : null,
   };
+}
+
+export function exportReplay(state) {
+  const payload = buildReplayPayload(state);
   downloadJson('avatar-chess-replay.json', payload);
   return payload;
+}
+
+/** Compact URL-hash share (base64 JSON). */
+export function encodeReplayHash(payload) {
+  const json = JSON.stringify({
+    version: payload.version,
+    kind: 'replay',
+    moves: payload.moves,
+    result: payload.result ?? null,
+  });
+  const bytes = new TextEncoder().encode(json);
+  let bin = '';
+  bytes.forEach((b) => {
+    bin += String.fromCharCode(b);
+  });
+  return `r=${btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')}`;
+}
+
+export function decodeReplayHash(hash) {
+  const raw = String(hash || '').replace(/^#/, '');
+  const m = raw.match(/(?:^|&)r=([^&]+)/);
+  if (!m) return null;
+  const b64 = m[1].replace(/-/g, '+').replace(/_/g, '/');
+  const pad = b64.length % 4 === 0 ? '' : '='.repeat(4 - (b64.length % 4));
+  const bin = atob(b64 + pad);
+  const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+  const json = new TextDecoder().decode(bytes);
+  return parseJsonFile(json);
+}
+
+export async function copyReplayLink(state) {
+  const payload = buildReplayPayload(state);
+  const hash = encodeReplayHash(payload);
+  const url = `${location.origin}${location.pathname}${location.search}#${hash}`;
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(url);
+  } else {
+    const ta = document.createElement('textarea');
+    ta.value = url;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    ta.remove();
+  }
+  return url;
 }
 
 export function parseJsonFile(text) {

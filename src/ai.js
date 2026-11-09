@@ -7,9 +7,9 @@ import {
   currentPlayer,
   algebraicToCoords,
 } from './game.js';
+import { DIFFICULTIES, getDifficulty } from './meta.js';
 
 function squareAttackedBy(board, file, rank, attacker, power) {
-  // Can attacker capture (file,rank) with their power from any of their pieces?
   for (let r = 0; r < 8; r++) {
     for (let f = 0; f < 8; f++) {
       const cell = board[r][f];
@@ -18,7 +18,6 @@ function squareAttackedBy(board, file, rank, attacker, power) {
       if (legal.some((m) => m.file === file && m.rank === rank && m.capture)) return true;
     }
   }
-  // Also check if empty destination would be attackable as a landing (capture flag false but same geometry)
   for (let r = 0; r < 8; r++) {
     for (let f = 0; f < 8; f++) {
       const cell = board[r][f];
@@ -45,20 +44,27 @@ function centrality(file, rank) {
   return 3.5 - Math.abs(file - 3.5) + (3.5 - Math.abs(rank - 3.5));
 }
 
-function scoreMove(state, move) {
-  let score = Math.random() * 0.4;
+function resolveProfile(difficulty) {
+  if (difficulty && DIFFICULTIES[difficulty]) return DIFFICULTIES[difficulty];
+  if (difficulty && typeof difficulty === 'object') return difficulty;
+  return getDifficulty();
+}
+
+function scoreMove(state, move, profile) {
+  let score = Math.random() * profile.noise;
   const to = algebraicToCoords(move.to);
   const player = currentPlayer(state);
 
   if (move.capture) {
     const victim = state.board[to.rank][to.file];
-    score += 12;
-    if (victim && state.piecesLeft[victim.player] === 1) score += 20; // eliminate
+    score += 12 * profile.captureWeight;
+    if (victim && state.piecesLeft[victim.player] === 1) {
+      score += 20 * profile.eliminateWeight;
+    }
   }
 
-  score += centrality(to.file, to.rank) * 0.35;
+  score += centrality(to.file, to.rank) * profile.centralityWeight;
 
-  // Simulate occupancy for safety check
   const board = state.board.map((row) => row.map((c) => (c ? { ...c } : null)));
   const from = algebraicToCoords(move.from);
   const piece = board[from.rank][from.file];
@@ -67,46 +73,65 @@ function scoreMove(state, move) {
 
   const opp = nextLivingOpponent(state, player);
   if (opp) {
-    // Opponent uses THEIR power for the current round (same round until they move)
     const oppPower = getPower(opp, state.round);
     if (squareAttackedBy(board, to.file, to.rank, opp, oppPower)) {
-      score -= move.capture ? 6 : 8;
+      score -= (move.capture ? 6 : 8) * profile.dangerWeight;
     }
   }
 
-  // Prefer moves that increase options slightly
   const power = getPower(player, state.round);
   const mobility = getLegalMoves(board, to.file, to.rank, power, player).length;
-  score += mobility * 0.08;
+  score += mobility * profile.mobilityWeight;
+
+  // Hard: look one ply ahead for hanging captures against us after move
+  if (profile.id === 'hard' && opp) {
+    const oppMoves = [];
+    for (let r = 0; r < 8; r++) {
+      for (let f = 0; f < 8; f++) {
+        const cell = board[r][f];
+        if (!cell || cell.player !== opp) continue;
+        for (const m of getLegalMoves(board, f, r, getPower(opp, state.round), opp)) {
+          if (m.capture) oppMoves.push(m);
+        }
+      }
+    }
+    if (oppMoves.some((m) => m.file === to.file && m.rank === to.rank)) {
+      score -= 4;
+    }
+  }
 
   return score;
 }
 
 /**
  * Choose the best AI move for the current player, or null if none.
+ * @param {object} state
+ * @param {{ difficulty?: string|object }} [opts]
  */
-export function chooseAiMove(state) {
+export function chooseAiMove(state, opts = {}) {
   const player = currentPlayer(state);
   const moves = listPlayerMoves(state, player);
   if (!moves.length) return null;
 
+  const profile = resolveProfile(opts.difficulty);
   let best = -Infinity;
   const top = [];
   for (const m of moves) {
-    const s = scoreMove(state, m);
-    if (s > best + 0.15) {
+    const s = scoreMove(state, m, profile);
+    if (s > best + profile.topBand) {
       best = s;
       top.length = 0;
       top.push(m);
-    } else if (Math.abs(s - best) <= 0.15) {
+    } else if (Math.abs(s - best) <= profile.topBand) {
       top.push(m);
     }
   }
   return top[Math.floor(Math.random() * top.length)];
 }
 
-export function aiThinkDelayMs({ fast = false } = {}) {
-  // Beat before each PC move so turns are readable (slightly faster when AI chains)
-  if (fast) return 320 + Math.floor(Math.random() * 180);
-  return 520 + Math.floor(Math.random() * 280);
+export function aiThinkDelayMs({ fast = false, difficulty } = {}) {
+  const profile = resolveProfile(difficulty);
+  const scale = profile.thinkScale || 1;
+  if (fast) return Math.round((320 + Math.floor(Math.random() * 180)) * scale);
+  return Math.round((520 + Math.floor(Math.random() * 280)) * scale);
 }
