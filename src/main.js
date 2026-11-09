@@ -52,10 +52,10 @@ import {
   setSidebarCollapsed,
   toggleSidebarMenu,
   closeSidebarMenu,
+  setWelcomeDrawerOpen,
   showCoachPopup,
   hideCoachPopup,
   showToast,
-  renderCareerPanel,
   updateBlitzHud,
 } from './ui.js';
 import {
@@ -73,7 +73,6 @@ import {
   recordMatchEnd,
   markTrainingComplete,
   careerSummary,
-  achievementProgress,
   shuffleControllers,
   isDailyDoneToday,
   todayKey,
@@ -95,8 +94,7 @@ function syncMuteButtons() {
     btn.setAttribute('aria-pressed', muted ? 'true' : 'false');
     btn.setAttribute('aria-label', title);
     btn.title = title;
-    if (id === 'btn-welcome-mute') btn.textContent = label;
-    else btn.textContent = muted ? '✕♪' : '♪';
+    btn.textContent = label;
   }
 }
 
@@ -320,7 +318,6 @@ async function beginTurnDice() {
 }
 
 function refreshCareerUi() {
-  renderCareerPanel(careerSummary(), achievementProgress());
   const hint = $('daily-hint');
   if (hint) {
     if (isDailyDoneToday()) {
@@ -924,6 +921,7 @@ function startTrainingFromUi() {
 
 $('btn-welcome-train')?.addEventListener('click', startTrainingFromUi);
 $('btn-welcome-help').addEventListener('click', () => {
+  setWelcomeOptionsOpen(false);
   openHelp();
   sfx.ui();
 });
@@ -956,22 +954,23 @@ $('btn-coach-continue')?.addEventListener('click', () => {
   sfx.ui();
 });
 
+function setWelcomeOptionsOpen(open) {
+  setWelcomeDrawerOpen(open);
+}
+
 $('btn-menu').addEventListener('click', (e) => {
   e.stopPropagation();
   toggleSidebarMenu();
+  sfx.ui();
 });
-
-function setWelcomeOptionsOpen(open) {
-  const drawer = $('welcome-options');
-  const backdrop = $('welcome-options-backdrop');
-  const btn = $('btn-welcome-options');
-  if (!drawer || !backdrop || !btn) return;
-  drawer.hidden = !open;
-  backdrop.hidden = !open;
-  drawer.setAttribute('aria-hidden', open ? 'false' : 'true');
-  backdrop.setAttribute('aria-hidden', open ? 'false' : 'true');
-  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
-}
+$('btn-menu-close')?.addEventListener('click', () => {
+  closeSidebarMenu();
+  sfx.ui();
+});
+$('sidebar-menu-backdrop')?.addEventListener('click', () => {
+  closeSidebarMenu();
+  sfx.ui();
+});
 
 $('btn-welcome-options')?.addEventListener('click', () => {
   const open = $('welcome-options')?.hidden;
@@ -991,9 +990,13 @@ document.addEventListener('keydown', (e) => {
   if ($('welcome-options') && !$('welcome-options').hidden) {
     setWelcomeOptionsOpen(false);
   }
+  if ($('sidebar-menu') && !$('sidebar-menu').hidden) {
+    closeSidebarMenu();
+  }
 });
 
 $('btn-welcome-settings').addEventListener('click', () => {
+  setWelcomeOptionsOpen(false);
   showSettings();
   sfx.ui();
 });
@@ -1016,11 +1019,6 @@ $('btn-sidebar-collapse').addEventListener('click', () => {
 $('btn-sidebar-expand').addEventListener('click', () => {
   setSidebarCollapsed(false);
   requestAnimationFrame(() => board.resize());
-});
-
-document.addEventListener('click', (e) => {
-  const wrap = e.target.closest?.('.menu-wrap');
-  if (!wrap) closeSidebarMenu();
 });
 
 $('hud-powers').addEventListener('click', (e) => {

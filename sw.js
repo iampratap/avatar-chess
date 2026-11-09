@@ -1,5 +1,5 @@
 /* Avatar Chess — offline-friendly service worker */
-const CACHE_VERSION = 'avatar-chess-career1';
+const CACHE_VERSION = 'avatar-chess-welcomemenu1';
 const PRECACHE = [
   './',
   './index.html',

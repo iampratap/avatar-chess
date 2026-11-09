@@ -14,7 +14,7 @@
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png" />
     <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
-    <link rel="stylesheet" href="./styles.css?v=career1" />
+    <link rel="stylesheet" href="./styles.css?v=welcomemenu1" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -45,64 +45,103 @@
       </button>
       <div
         id="welcome-options-backdrop"
-        class="welcome-options-backdrop"
+        class="drawer-backdrop welcome-options-backdrop"
         hidden
         aria-hidden="true"
       ></div>
       <aside
         id="welcome-options"
-        class="welcome-options-drawer"
+        class="app-drawer welcome-options-drawer"
         hidden
         aria-hidden="true"
         aria-labelledby="welcome-options-title"
       >
-        <header class="welcome-options-head">
-          <h2 id="welcome-options-title">Match options</h2>
+        <header class="app-drawer-head welcome-options-head">
+          <h2 id="welcome-options-title">Options</h2>
           <button type="button" class="icon-btn" id="btn-welcome-options-close" aria-label="Close options">
             ×
           </button>
         </header>
-        <div class="welcome-options-body match-options">
-          <div class="humans-picker compact" role="group" aria-label="PC difficulty">
-            <p class="picker-label">PC difficulty</p>
-            <div class="picker-options three">
-              <label class="picker-opt"><input type="radio" name="difficulty" value="easy" /> Easy</label>
-              <label class="picker-opt"><input type="radio" name="difficulty" value="normal" checked /> Normal</label>
-              <label class="picker-opt"><input type="radio" name="difficulty" value="hard" /> Hard</label>
+        <div class="app-drawer-body welcome-options-body match-options">
+          <section class="options-section" aria-label="Match">
+            <h3 class="options-section-title">Match</h3>
+            <div class="humans-picker compact" role="group" aria-label="Number of human players">
+              <p class="picker-label">Human players</p>
+              <div class="picker-options">
+                <label class="picker-opt"><input type="radio" name="humans" value="1" /> 1 + PC</label>
+                <label class="picker-opt"><input type="radio" name="humans" value="2" /> 2 + PC</label>
+                <label class="picker-opt"><input type="radio" name="humans" value="3" /> 3 + PC</label>
+                <label class="picker-opt"><input type="radio" name="humans" value="4" checked /> 4 humans</label>
+              </div>
+              <p class="picker-hint">Seats A→D: humans first, remaining seats are PC.</p>
             </div>
-          </div>
-          <div class="humans-picker compact" role="group" aria-label="Blitz timer">
-            <p class="picker-label">Blitz (per turn)</p>
-            <div class="picker-options three">
-              <label class="picker-opt"><input type="radio" name="blitz" value="off" checked /> Off</label>
-              <label class="picker-opt"><input type="radio" name="blitz" value="20" /> 20s</label>
-              <label class="picker-opt"><input type="radio" name="blitz" value="45" /> 45s</label>
-            </div>
-          </div>
-          <div class="humans-picker compact" role="group" aria-label="Shrink rings">
-            <p class="picker-label">Shrink rings</p>
-            <div class="picker-options">
-              <label class="picker-opt"><input type="radio" name="shrinkRings" value="off" checked /> Off</label>
-              <label class="picker-opt"><input type="radio" name="shrinkRings" value="on" /> On</label>
-            </div>
-            <p class="picker-hint">If any board edge is empty of pieces, that edge is cut away.</p>
-          </div>
-          <div class="humans-picker compact" role="group" aria-label="Dice power mode">
-            <p class="picker-label">Dice powers</p>
-            <div class="picker-options">
-              <label class="picker-opt"><input type="radio" name="diceMode" value="off" checked /> Off</label>
-              <label class="picker-opt"><input type="radio" name="diceMode" value="on" /> On</label>
-            </div>
-            <div id="dice-pieces-wrap" class="dice-pieces-wrap" hidden>
-              <p class="picker-label sub">Pieces each</p>
-              <div class="picker-options three" role="group" aria-label="Dice mode piece count">
-                <label class="picker-opt"><input type="radio" name="dicePieces" value="2" /> 2</label>
-                <label class="picker-opt"><input type="radio" name="dicePieces" value="3" /> 3</label>
-                <label class="picker-opt"><input type="radio" name="dicePieces" value="4" checked /> 4</label>
+            <div class="humans-picker compact" role="group" aria-label="PC difficulty">
+              <p class="picker-label">PC difficulty</p>
+              <div class="picker-options three">
+                <label class="picker-opt"><input type="radio" name="difficulty" value="easy" /> Easy</label>
+                <label class="picker-opt"><input type="radio" name="difficulty" value="normal" checked /> Normal</label>
+                <label class="picker-opt"><input type="radio" name="difficulty" value="hard" /> Hard</label>
               </div>
             </div>
-            <p class="picker-hint">d6 each turn: ♟ ♘ ♗ ♖ ♕ or pass · unmoved pieces are safe.</p>
-          </div>
+            <div class="humans-picker compact" role="group" aria-label="Blitz timer">
+              <p class="picker-label">Blitz (per turn)</p>
+              <div class="picker-options three">
+                <label class="picker-opt"><input type="radio" name="blitz" value="off" checked /> Off</label>
+                <label class="picker-opt"><input type="radio" name="blitz" value="20" /> 20s</label>
+                <label class="picker-opt"><input type="radio" name="blitz" value="45" /> 45s</label>
+              </div>
+            </div>
+          </section>
+
+          <section class="options-section" aria-label="Modes">
+            <h3 class="options-section-title">Modes</h3>
+            <div class="humans-picker compact" role="group" aria-label="Shrink rings">
+              <p class="picker-label">Shrink rings</p>
+              <div class="picker-options">
+                <label class="picker-opt"><input type="radio" name="shrinkRings" value="off" checked /> Off</label>
+                <label class="picker-opt"><input type="radio" name="shrinkRings" value="on" /> On</label>
+              </div>
+              <p class="picker-hint">If any board edge is empty of pieces, that edge is cut away.</p>
+            </div>
+            <div class="humans-picker compact" role="group" aria-label="Dice power mode">
+              <p class="picker-label">Dice powers</p>
+              <div class="picker-options">
+                <label class="picker-opt"><input type="radio" name="diceMode" value="off" checked /> Off</label>
+                <label class="picker-opt"><input type="radio" name="diceMode" value="on" /> On</label>
+              </div>
+              <div id="dice-pieces-wrap" class="dice-pieces-wrap" hidden>
+                <p class="picker-label sub">Pieces each</p>
+                <div class="picker-options three" role="group" aria-label="Dice mode piece count">
+                  <label class="picker-opt"><input type="radio" name="dicePieces" value="2" /> 2</label>
+                  <label class="picker-opt"><input type="radio" name="dicePieces" value="3" /> 3</label>
+                  <label class="picker-opt"><input type="radio" name="dicePieces" value="4" checked /> 4</label>
+                </div>
+              </div>
+              <p class="picker-hint">d6 each turn: ♟ ♘ ♗ ♖ ♕ or pass · unmoved pieces are safe.</p>
+            </div>
+          </section>
+
+          <section class="options-section" aria-label="More">
+            <h3 class="options-section-title">More</h3>
+            <div class="options-actions">
+              <button type="button" class="btn" id="btn-welcome-settings">Looks</button>
+              <button type="button" class="btn" id="btn-welcome-help">Manual</button>
+              <button
+                type="button"
+                class="btn mute-btn"
+                id="btn-welcome-mute"
+                aria-pressed="false"
+                title="Mute sound"
+                aria-label="Mute sound"
+              >
+                Sound on
+              </button>
+              <button type="button" class="btn" id="btn-import-replay">Import replay</button>
+              <input type="file" id="import-replay-file" accept="application/json,.json" hidden />
+            </div>
+            <p class="picker-hint welcome-theme-summary" id="welcome-theme-summary">Dark · Wooden · Classic Sculpt</p>
+            <p id="daily-hint" class="picker-hint" hidden></p>
+          </section>
         </div>
       </aside>
       <div class="welcome-content">
@@ -113,19 +152,6 @@
           Last avatar standing wins.
         </p>
 
-        <div class="humans-picker" role="group" aria-label="Number of human players">
-          <p class="picker-label">Human players</p>
-          <div class="picker-options">
-            <label class="picker-opt"><input type="radio" name="humans" value="1" /> 1 + PC</label>
-            <label class="picker-opt"><input type="radio" name="humans" value="2" /> 2 + PC</label>
-            <label class="picker-opt"><input type="radio" name="humans" value="3" /> 3 + PC</label>
-            <label class="picker-opt"><input type="radio" name="humans" value="4" checked /> 4 humans</label>
-          </div>
-          <p class="picker-hint">Seats A→D: humans first, remaining seats are PC.</p>
-        </div>
-
-        <div id="career-panel" class="career-panel" aria-label="Career stats"></div>
-
         <div id="resume-banner" class="resume-banner" hidden>
           <p class="resume-title">Continue your game?</p>
           <p id="resume-summary" class="resume-summary"></p>
@@ -135,28 +161,10 @@
           </div>
         </div>
 
-        <div class="welcome-actions">
+        <div class="welcome-actions welcome-cta">
           <button type="button" class="btn primary xl" id="btn-play">Play</button>
           <button type="button" class="btn xl" id="btn-daily">Daily</button>
-          <button type="button" class="btn xl" id="btn-welcome-help">Manual</button>
-          <button type="button" class="btn xl" id="btn-welcome-settings">Looks</button>
-          <button
-            type="button"
-            class="btn xl mute-btn"
-            id="btn-welcome-mute"
-            aria-pressed="false"
-            title="Mute sound"
-            aria-label="Mute sound"
-          >
-            Sound on
-          </button>
         </div>
-        <div class="welcome-actions welcome-share-row">
-          <button type="button" class="btn" id="btn-import-replay">Import replay</button>
-          <input type="file" id="import-replay-file" accept="application/json,.json" hidden />
-        </div>
-        <p class="picker-hint welcome-theme-summary" id="welcome-theme-summary">Dark · Wooden · Classic Sculpt</p>
-        <p id="daily-hint" class="picker-hint" hidden></p>
         <p class="error" data-save-error hidden></p>
 
         <footer class="credit-footer">
@@ -172,38 +180,55 @@
 
     <!-- Play layout: sidebar + board -->
     <div id="game-shell" hidden>
+      <div
+        id="sidebar-menu-backdrop"
+        class="drawer-backdrop game-menu-backdrop"
+        hidden
+        aria-hidden="true"
+      ></div>
+      <aside
+        id="sidebar-menu"
+        class="app-drawer game-menu-drawer"
+        hidden
+        aria-hidden="true"
+        aria-labelledby="game-menu-title"
+      >
+        <header class="app-drawer-head">
+          <h2 id="game-menu-title">Menu</h2>
+          <button type="button" class="icon-btn" id="btn-menu-close" aria-label="Close menu">×</button>
+        </header>
+        <div class="app-drawer-body game-menu-body">
+          <button type="button" class="menu-item" id="btn-help">User Manual</button>
+          <button type="button" class="menu-item" id="btn-train">Live Training</button>
+          <button type="button" class="menu-item" id="btn-settings">Looks &amp; Models</button>
+          <button
+            type="button"
+            class="menu-item mute-btn"
+            id="btn-mute"
+            aria-pressed="false"
+            title="Mute sound"
+            aria-label="Mute sound"
+          >
+            Sound on
+          </button>
+          <button type="button" class="menu-item danger" id="btn-restart">Restart</button>
+        </div>
+      </aside>
+
       <aside id="game-chrome" class="sidebar">
         <div class="sidebar-top">
           <div class="brand-mini">Avatar Chess</div>
           <div class="sidebar-top-actions">
             <button
               type="button"
-              class="icon-chip mute-btn"
-              id="btn-mute"
-              aria-pressed="false"
-              title="Mute sound"
-              aria-label="Mute sound"
+              class="icon-chip"
+              id="btn-menu"
+              aria-expanded="false"
+              aria-controls="sidebar-menu"
+              title="Menu"
             >
-              ♪
+              ☰
             </button>
-            <div class="menu-wrap">
-              <button
-                type="button"
-                class="icon-chip"
-                id="btn-menu"
-                aria-expanded="false"
-                aria-controls="sidebar-menu"
-                title="Menu"
-              >
-                ☰
-              </button>
-              <div id="sidebar-menu" class="sidebar-menu" hidden>
-                <button type="button" class="menu-item" id="btn-help">User Manual</button>
-                <button type="button" class="menu-item" id="btn-train">Live Training</button>
-                <button type="button" class="menu-item" id="btn-settings">Looks &amp; Models</button>
-                <button type="button" class="menu-item danger" id="btn-restart">Restart</button>
-              </div>
-            </div>
             <button
               type="button"
               class="icon-chip"
@@ -602,7 +627,7 @@
 
     <div id="toast-host" class="toast-host" aria-live="polite"></div>
 
-    <script type="module" src="./src/main.js?v=career1"></script>
+    <script type="module" src="./src/main.js?v=welcomemenu1"></script>
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {

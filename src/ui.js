@@ -83,21 +83,41 @@ export function isSidebarCollapsed() {
   return $('game-shell')?.classList.contains('sidebar-collapsed') ?? false;
 }
 
+function setBodyDrawerLock(locked) {
+  const welcomeOpen = $('welcome-options') && !$('welcome-options').hidden;
+  const gameOpen = $('sidebar-menu') && !$('sidebar-menu').hidden;
+  document.body.classList.toggle('drawer-open', locked || welcomeOpen || gameOpen);
+}
+
 export function openSidebarMenu() {
   const menu = $('sidebar-menu');
+  const backdrop = $('sidebar-menu-backdrop');
   const btn = $('btn-menu');
   if (!menu || !btn) return;
   menu.hidden = false;
+  if (backdrop) {
+    backdrop.hidden = false;
+    backdrop.setAttribute('aria-hidden', 'false');
+  }
+  menu.setAttribute('aria-hidden', 'false');
   bumpAnim(menu, 'ui-enter');
   btn.setAttribute('aria-expanded', 'true');
+  setBodyDrawerLock(true);
 }
 
 export function closeSidebarMenu() {
   const menu = $('sidebar-menu');
+  const backdrop = $('sidebar-menu-backdrop');
   const btn = $('btn-menu');
   if (!menu || !btn) return;
   menu.hidden = true;
+  if (backdrop) {
+    backdrop.hidden = true;
+    backdrop.setAttribute('aria-hidden', 'true');
+  }
+  menu.setAttribute('aria-hidden', 'true');
   btn.setAttribute('aria-expanded', 'false');
+  setBodyDrawerLock(false);
 }
 
 export function toggleSidebarMenu() {
@@ -105,6 +125,19 @@ export function toggleSidebarMenu() {
   if (!menu) return;
   if (menu.hidden) openSidebarMenu();
   else closeSidebarMenu();
+}
+
+export function setWelcomeDrawerOpen(open) {
+  const drawer = $('welcome-options');
+  const backdrop = $('welcome-options-backdrop');
+  const btn = $('btn-welcome-options');
+  if (!drawer || !backdrop || !btn) return;
+  drawer.hidden = !open;
+  backdrop.hidden = !open;
+  drawer.setAttribute('aria-hidden', open ? 'false' : 'true');
+  backdrop.setAttribute('aria-hidden', open ? 'false' : 'true');
+  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  setBodyDrawerLock(open);
 }
 
 export function openHelp() {
@@ -230,34 +263,9 @@ export function showToast(message, { ms = 2600 } = {}) {
   }, ms);
 }
 
-export function updateCareerPanel() {
-  const root = $('career-panel');
-  if (!root) return;
-  // Filled from main via renderCareerPanel to avoid circular meta import weight — keep DOM helper here
-}
-
-export function renderCareerPanel(summary, achievements = []) {
-  const root = $('career-panel');
-  if (!root) return;
-  const unlocked = achievements.filter((a) => a.unlocked).length;
-  root.innerHTML = `
-    <div class="career-stats">
-      <span><b>${summary.wins}</b> wins</span>
-      <span><b>${summary.streak}</b> streak</span>
-      <span><b>${summary.bestStreak}</b> best</span>
-      <span><b>${summary.eliminations}</b> KOs</span>
-      <span><b>${unlocked}</b>/${achievements.length || 7} badges</span>
-    </div>
-    <div class="career-badges" aria-label="Achievements">
-      ${achievements
-        .map(
-          (a) =>
-            `<span class="career-badge ${a.unlocked ? 'on' : ''}" title="${a.desc}">${a.label}</span>`
-        )
-        .join('')}
-    </div>
-  `;
-}
+/** Career panel removed from welcome; helpers kept as no-ops. */
+export function updateCareerPanel() {}
+export function renderCareerPanel() {}
 
 export function updateBlitzHud(secondsLeft, totalSeconds) {
   const wrap = $('blitz-hud');
