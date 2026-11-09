@@ -10,6 +10,8 @@ export function createReplayController({
   onIndexChange,
   stepGapMs = 420,
   shrinkRings = false,
+  diceMode = false,
+  dicePieces = 4,
   controllers = null,
 }) {
   let index = 0; // number of moves applied (0 = opening)
@@ -19,7 +21,7 @@ export function createReplayController({
 
   async function emit() {
     const state = clearPendingPowerSwitch(
-      stateAfterMoves(moves, index, controllers, { shrinkRings })
+      stateAfterMoves(moves, index, controllers, { shrinkRings, diceMode, dicePieces })
     );
     await onFrame(state, index, moves.length);
     onIndexChange?.(index, moves.length, { playing });

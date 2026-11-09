@@ -86,6 +86,8 @@ const defaultPrefs = () => ({
   difficulty: 'normal',
   blitz: 'off',
   shrinkRings: false,
+  diceMode: false,
+  dicePieces: 4,
 });
 
 const defaultStats = () => ({
@@ -107,6 +109,9 @@ export function loadPrefs() {
   if (!DIFFICULTIES[p.difficulty]) p.difficulty = 'normal';
   if (!BLITZ_OPTIONS[p.blitz]) p.blitz = 'off';
   p.shrinkRings = !!p.shrinkRings;
+  p.diceMode = !!p.diceMode;
+  const pieces = Number(p.dicePieces) | 0;
+  p.dicePieces = pieces >= 2 && pieces <= 4 ? pieces : 4;
   return p;
 }
 

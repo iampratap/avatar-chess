@@ -8,9 +8,15 @@ import {
   isAiPlayer,
   togglePlayerController,
   getPower,
+  getActivePower,
   listPlayerMoves,
   currentPlayer,
   zoneLabel,
+  ensureDiceRolled,
+  applyDiceFace,
+  resolveDicePass,
+  POWER_LABEL,
+  POWER_SYMBOL,
 } from './game.js';
 import { chooseAiMove, aiThinkDelayMs } from './ai.js';
 import { createBoard3D } from './board3d.js';
@@ -183,12 +189,22 @@ function selectedRadio(name, fallback) {
   return checked ? checked.value : fallback;
 }
 
+function syncDicePiecesVisibility() {
+  const wrap = $('dice-pieces-wrap');
+  if (!wrap) return;
+  wrap.hidden = selectedRadio('diceMode', 'off') !== 'on';
+}
+
 function syncPrefsFromUi() {
-  return savePrefs({
+  const prefs = savePrefs({
     difficulty: selectedRadio('difficulty', 'normal'),
     blitz: selectedRadio('blitz', 'off'),
     shrinkRings: selectedRadio('shrinkRings', 'off') === 'on',
+    diceMode: selectedRadio('diceMode', 'off') === 'on',
+    dicePieces: Number(selectedRadio('dicePieces', '4')) || 4,
   });
+  syncDicePiecesVisibility();
+  return prefs;
 }
 
 function applyPrefsToUi() {
@@ -203,11 +219,104 @@ function applyPrefsToUi() {
   for (const el of document.querySelectorAll('input[name="shrinkRings"]')) {
     el.checked = el.value === shrinkVal;
   }
+  const diceVal = prefs.diceMode ? 'on' : 'off';
+  for (const el of document.querySelectorAll('input[name="diceMode"]')) {
+    el.checked = el.value === diceVal;
+  }
+  const piecesVal = String(prefs.dicePieces || 4);
+  for (const el of document.querySelectorAll('input[name="dicePieces"]')) {
+    el.checked = el.value === piecesVal;
+  }
+  syncDicePiecesVisibility();
 }
 
 function matchOptionsFromPrefs() {
   const prefs = loadPrefs();
-  return { shrinkRings: !!prefs.shrinkRings };
+  return {
+    shrinkRings: !!prefs.shrinkRings,
+    diceMode: !!prefs.diceMode,
+    dicePieces: prefs.dicePieces || 4,
+  };
+}
+
+function updateDiceHud() {
+  const hud = $('dice-hud');
+  if (!hud) return;
+  if (!state?.diceMode || mode !== 'playing') {
+    hud.hidden = true;
+    return;
+  }
+  hud.hidden = false;
+  const face = $('dice-face');
+  const powerEl = $('dice-power');
+  if (!state.diceRolledThisTurn || !state.dicePower) {
+    if (face) face.textContent = '?';
+    if (powerEl) powerEl.textContent = 'Rolling…';
+    return;
+  }
+  if (face) face.textContent = String(state.diceFace || '?');
+  if (powerEl) {
+    const p = state.dicePower;
+    powerEl.textContent = `${POWER_SYMBOL[p] || ''} ${POWER_LABEL[p] || p}`;
+  }
+}
+
+async function beginTurnDice() {
+  if (!state?.diceMode || state.winner || mode !== 'playing') {
+    updateDiceHud();
+    return false;
+  }
+  // Already rolled this turn (e.g. mid-turn resume) — don't toss again
+  if (state.diceRolledThisTurn && state.dicePower) {
+    updateDiceHud();
+    if (state.dicePower === 'pass') {
+      state = resolveDicePass(state);
+      updateDiceHud();
+      await afterMoveEffects(state.lastMove);
+      return true;
+    }
+    return false;
+  }
+
+  // HUD stays on “Rolling…” until the physical die lands
+  const faceEl = $('dice-face');
+  const powerEl = $('dice-power');
+  if (faceEl) faceEl.textContent = '…';
+  if (powerEl) powerEl.textContent = 'Rolling…';
+  $('dice-hud').hidden = false;
+  sfx.ui();
+  inputLocked = true;
+
+  let face = null;
+  try {
+    // Physics decides the face — power is assigned only after the toss
+    face = await board.playDiceRoll?.();
+  } catch {
+    face = null;
+  }
+  if (face == null) {
+    state = ensureDiceRolled(state);
+  } else {
+    state = applyDiceFace(state, face);
+  }
+
+  inputLocked = isAiPlayer(state);
+  updateDiceHud();
+  refresh();
+  showToast(
+    state.dicePower === 'pass'
+      ? `Dice ${state.diceFace}: Pass — turn skipped`
+      : `Dice ${state.diceFace}: ${POWER_LABEL[state.dicePower]}`
+  );
+  await sleep(state.dicePower === 'pass' ? 380 : 220);
+
+  if (state.dicePower === 'pass') {
+    state = resolveDicePass(state);
+    updateDiceHud();
+    await afterMoveEffects(state.lastMove);
+    return true;
+  }
+  return false;
 }
 
 function refreshCareerUi() {
@@ -320,6 +429,7 @@ function sleep(ms) {
 function refresh(opts = {}) {
   board.syncFromState(state, opts);
   updateHUD(state, mode === 'replay' ? 'replay' : 'playing');
+  updateDiceHud();
 }
 
 async function runPowerSwitchIfNeeded() {
@@ -364,18 +474,20 @@ function showResumeBannerIfAny() {
 
 async function afterMoveEffects(move) {
   clearBlitzTimer();
-  if (move) {
+  const isPass = !!(move?.pass || move?.power === 'pass');
+  if (move && !isPass) {
     if (move.captured) sfx.capture();
     else sfx.move();
   }
 
   // 1) Glide the piece (keep its attack form during the flight)
   refresh({
-    animateMove: move
-      ? { pieceId: move.pieceId, power: move.power }
-      : null,
+    animateMove:
+      move && !isPass && move.pieceId
+        ? { pieceId: move.pieceId, power: move.power }
+        : null,
   });
-  await board.waitForTweens();
+  if (!isPass) await board.waitForTweens();
 
   // 2) Capture spark / elimination drama
   if (move?.captured) {
@@ -450,7 +562,11 @@ function finishMatchMeta() {
     winner,
     humanWon,
     eliminations: matchFlags.elimThisMatch,
-    winPower: winner ? getPower(winner, state.round) : null,
+    winPower: winner
+      ? state.diceMode
+        ? state.history?.[state.history.length - 1]?.power || 'pawn'
+        : getPower(winner, state.round)
+      : null,
     difficulty: prefs.difficulty,
     blitzSeconds: getBlitzSeconds(),
     isDaily: matchFlags.daily,
@@ -466,6 +582,22 @@ function finishMatchMeta() {
 }
 
 function scheduleAiIfNeeded() {
+  clearAiTimer();
+  if (mode !== 'playing' || isTraining() || state.winner || state.fxLocked) return;
+  // Dice roll (and auto-pass) for whoever's turn it is
+  void (async () => {
+    if (mode !== 'playing' || state.winner || state.fxLocked) return;
+    const skipped = await beginTurnDice();
+    if (skipped) return;
+    if (!isAiPlayer(state)) {
+      updateDiceHud();
+      return;
+    }
+    scheduleAiMoveOnly();
+  })();
+}
+
+function scheduleAiMoveOnly() {
   clearAiTimer();
   if (mode !== 'playing' || isTraining() || state.winner || state.fxLocked) return;
   if (!isAiPlayer(state)) return;
@@ -584,7 +716,7 @@ function enterWelcome() {
   refreshCareerUi();
 }
 
-function enterReplay(moves, { shrinkRings = false } = {}) {
+function enterReplay(moves, { shrinkRings = false, diceMode = false, dicePieces = 4 } = {}) {
   clearAiTimer();
   clearBlitzTimer();
   aiGeneration += 1;
@@ -600,6 +732,8 @@ function enterReplay(moves, { shrinkRings = false } = {}) {
   replay = createReplayController({
     moves,
     shrinkRings,
+    diceMode,
+    dicePieces,
     stepGapMs: 380,
     async onFrame(s, index, total) {
       const steppedForward = index === lastIndex + 1 && index > 0;
@@ -687,6 +821,7 @@ $('btn-mute').addEventListener('click', onMuteClick);
 $('btn-play').addEventListener('click', () => {
   unlockAudio();
   syncPrefsFromUi();
+  setWelcomeOptionsOpen(false);
   if (loadAutosave()) {
     const ok = confirm('Start a new game? Your saved progress will be discarded.');
     if (!ok) return;
@@ -701,6 +836,7 @@ $('btn-daily')?.addEventListener('click', () => {
   unlockAudio();
   savePrefs({ difficulty: 'hard', blitz: 'off' });
   applyPrefsToUi();
+  setWelcomeOptionsOpen(false);
   if (loadAutosave()) {
     const ok = confirm('Start Daily Challenge? Your saved progress will be discarded.');
     if (!ok) return;
@@ -716,7 +852,7 @@ $('btn-daily')?.addEventListener('click', () => {
   showToast(isDailyDoneToday() ? 'Daily already cleared — play for a better score!' : 'Daily Challenge: beat Hard PC');
 });
 
-for (const name of ['difficulty', 'blitz', 'shrinkRings']) {
+for (const name of ['difficulty', 'blitz', 'shrinkRings', 'diceMode', 'dicePieces']) {
   document.querySelectorAll(`input[name="${name}"]`).forEach((el) => {
     el.addEventListener('change', () => {
       syncPrefsFromUi();
@@ -737,7 +873,11 @@ $('import-replay-file')?.addEventListener('change', async (e) => {
     const textFile = await readFileAsText(file);
     const data = parseJsonFile(textFile);
     const result = applyReplayPayload(data);
-    enterReplay(result.moves, { shrinkRings: result.shrinkRings });
+    enterReplay(result.moves, {
+      shrinkRings: result.shrinkRings,
+      diceMode: result.diceMode,
+      dicePieces: result.dicePieces,
+    });
     showToast('Replay loaded');
   } catch (err) {
     setSaveError(err.message || 'Could not import replay.');
@@ -819,6 +959,38 @@ $('btn-coach-continue')?.addEventListener('click', () => {
 $('btn-menu').addEventListener('click', (e) => {
   e.stopPropagation();
   toggleSidebarMenu();
+});
+
+function setWelcomeOptionsOpen(open) {
+  const drawer = $('welcome-options');
+  const backdrop = $('welcome-options-backdrop');
+  const btn = $('btn-welcome-options');
+  if (!drawer || !backdrop || !btn) return;
+  drawer.hidden = !open;
+  backdrop.hidden = !open;
+  drawer.setAttribute('aria-hidden', open ? 'false' : 'true');
+  backdrop.setAttribute('aria-hidden', open ? 'false' : 'true');
+  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+$('btn-welcome-options')?.addEventListener('click', () => {
+  const open = $('welcome-options')?.hidden;
+  setWelcomeOptionsOpen(!!open);
+  sfx.ui();
+});
+$('btn-welcome-options-close')?.addEventListener('click', () => {
+  setWelcomeOptionsOpen(false);
+  sfx.ui();
+});
+$('welcome-options-backdrop')?.addEventListener('click', () => {
+  setWelcomeOptionsOpen(false);
+  sfx.ui();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  if ($('welcome-options') && !$('welcome-options').hidden) {
+    setWelcomeOptionsOpen(false);
+  }
 });
 
 $('btn-welcome-settings').addEventListener('click', () => {
@@ -905,6 +1077,8 @@ $('btn-winner-again').addEventListener('click', () => {
       humans: selectedHumans(),
       controllers,
       shrinkRings: state.shrinkRings ?? matchOptionsFromPrefs().shrinkRings,
+      diceMode: state.diceMode ?? matchOptionsFromPrefs().diceMode,
+      dicePieces: state.dicePieces ?? matchOptionsFromPrefs().dicePieces,
     }),
     { daily }
   );
@@ -918,6 +1092,8 @@ $('btn-winner-shuffle')?.addEventListener('click', () => {
     createInitialState({
       controllers,
       shrinkRings: state.shrinkRings ?? matchOptionsFromPrefs().shrinkRings,
+      diceMode: state.diceMode ?? matchOptionsFromPrefs().diceMode,
+      dicePieces: state.dicePieces ?? matchOptionsFromPrefs().dicePieces,
     }),
     { daily: false }
   );
@@ -948,7 +1124,11 @@ $('btn-winner-replay').addEventListener('click', () => {
   if (!state.history?.length) return;
   const moves = state.history.map((m) => ({ ...m }));
   hideWinner();
-  enterReplay(moves, { shrinkRings: !!state.shrinkRings });
+  enterReplay(moves, {
+    shrinkRings: !!state.shrinkRings,
+    diceMode: !!state.diceMode,
+    dicePieces: state.dicePieces || 4,
+  });
 });
 $('btn-replay-toggle').addEventListener('click', () => replay?.toggle());
 $('btn-replay-back').addEventListener('click', () => replay?.stepBack());
@@ -969,7 +1149,11 @@ try {
   if (shared?.kind === 'replay') {
     const result = applyReplayPayload(shared);
     history.replaceState(null, '', location.pathname + location.search);
-    enterReplay(result.moves, { shrinkRings: result.shrinkRings });
+    enterReplay(result.moves, {
+      shrinkRings: result.shrinkRings,
+      diceMode: result.diceMode,
+      dicePieces: result.dicePieces,
+    });
     showToast('Opened shared replay');
   }
 } catch (err) {

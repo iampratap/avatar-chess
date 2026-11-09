@@ -14,7 +14,7 @@
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png" />
     <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
-    <link rel="stylesheet" href="./styles.css?v=shrink2" />
+    <link rel="stylesheet" href="./styles.css?v=career1" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -34,26 +34,35 @@
     <!-- Dedicated welcome (no board behind) -->
     <section id="welcome-screen" class="welcome-screen">
       <div class="welcome-bg" aria-hidden="true"></div>
-      <div class="welcome-content">
-        <p class="eyebrow">Four players · shifting powers</p>
-        <h1 class="welcome-title">Avatar Chess</h1>
-        <p class="tagline">
-          Pawns that transform into Rook, Knight, or Bishop on your turn.<br />
-          Last avatar standing wins.
-        </p>
-
-        <div class="humans-picker" role="group" aria-label="Number of human players">
-          <p class="picker-label">Human players</p>
-          <div class="picker-options">
-            <label class="picker-opt"><input type="radio" name="humans" value="1" /> 1 + PC</label>
-            <label class="picker-opt"><input type="radio" name="humans" value="2" /> 2 + PC</label>
-            <label class="picker-opt"><input type="radio" name="humans" value="3" /> 3 + PC</label>
-            <label class="picker-opt"><input type="radio" name="humans" value="4" checked /> 4 humans</label>
-          </div>
-          <p class="picker-hint">Seats A→D: humans first, remaining seats are PC.</p>
-        </div>
-
-        <div class="match-options">
+      <button
+        type="button"
+        class="welcome-options-btn"
+        id="btn-welcome-options"
+        aria-expanded="false"
+        aria-controls="welcome-options"
+      >
+        Options
+      </button>
+      <div
+        id="welcome-options-backdrop"
+        class="welcome-options-backdrop"
+        hidden
+        aria-hidden="true"
+      ></div>
+      <aside
+        id="welcome-options"
+        class="welcome-options-drawer"
+        hidden
+        aria-hidden="true"
+        aria-labelledby="welcome-options-title"
+      >
+        <header class="welcome-options-head">
+          <h2 id="welcome-options-title">Match options</h2>
+          <button type="button" class="icon-btn" id="btn-welcome-options-close" aria-label="Close options">
+            ×
+          </button>
+        </header>
+        <div class="welcome-options-body match-options">
           <div class="humans-picker compact" role="group" aria-label="PC difficulty">
             <p class="picker-label">PC difficulty</p>
             <div class="picker-options three">
@@ -78,6 +87,41 @@
             </div>
             <p class="picker-hint">If any board edge is empty of pieces, that edge is cut away.</p>
           </div>
+          <div class="humans-picker compact" role="group" aria-label="Dice power mode">
+            <p class="picker-label">Dice powers</p>
+            <div class="picker-options">
+              <label class="picker-opt"><input type="radio" name="diceMode" value="off" checked /> Off</label>
+              <label class="picker-opt"><input type="radio" name="diceMode" value="on" /> On</label>
+            </div>
+            <div id="dice-pieces-wrap" class="dice-pieces-wrap" hidden>
+              <p class="picker-label sub">Pieces each</p>
+              <div class="picker-options three" role="group" aria-label="Dice mode piece count">
+                <label class="picker-opt"><input type="radio" name="dicePieces" value="2" /> 2</label>
+                <label class="picker-opt"><input type="radio" name="dicePieces" value="3" /> 3</label>
+                <label class="picker-opt"><input type="radio" name="dicePieces" value="4" checked /> 4</label>
+              </div>
+            </div>
+            <p class="picker-hint">d6 each turn: ♟ ♘ ♗ ♖ ♕ or pass · unmoved pieces are safe.</p>
+          </div>
+        </div>
+      </aside>
+      <div class="welcome-content">
+        <p class="eyebrow">Four players · shifting powers</p>
+        <h1 class="welcome-title">Avatar Chess</h1>
+        <p class="tagline">
+          Pawns that transform into Rook, Knight, or Bishop on your turn.<br />
+          Last avatar standing wins.
+        </p>
+
+        <div class="humans-picker" role="group" aria-label="Number of human players">
+          <p class="picker-label">Human players</p>
+          <div class="picker-options">
+            <label class="picker-opt"><input type="radio" name="humans" value="1" /> 1 + PC</label>
+            <label class="picker-opt"><input type="radio" name="humans" value="2" /> 2 + PC</label>
+            <label class="picker-opt"><input type="radio" name="humans" value="3" /> 3 + PC</label>
+            <label class="picker-opt"><input type="radio" name="humans" value="4" checked /> 4 humans</label>
+          </div>
+          <p class="picker-hint">Seats A→D: humans first, remaining seats are PC.</p>
         </div>
 
         <div id="career-panel" class="career-panel" aria-label="Career stats"></div>
@@ -181,6 +225,11 @@
           <div id="blitz-hud" class="blitz-hud" hidden>
             <span id="blitz-label" class="blitz-label">20s</span>
             <div class="blitz-track" aria-hidden="true"><div id="blitz-bar" class="blitz-bar"></div></div>
+          </div>
+          <div id="dice-hud" class="dice-hud" hidden>
+            <span class="dice-kicker">Dice</span>
+            <span id="dice-face" class="dice-face" aria-hidden="true">?</span>
+            <span id="dice-power" class="dice-power">Roll…</span>
           </div>
           <div id="hud-powers" class="hud-powers"></div>
           <div id="hud-pieces" class="hud-pieces"></div>
@@ -417,6 +466,13 @@
             <li>Move there. Landing on an opponent captures them. After the move, pieces return to pawns.</li>
           </ol>
 
+          <h3>Dice powers (optional)</h3>
+          <p>
+            When <strong>Dice powers</strong> is On, each turn rolls a d6:
+            1 pawn · 2 knight · 3 bishop · 4 rook · 5 queen · 6 pass/skip.
+            Choose <strong>2, 3, or 4 pieces</strong> per seat in Options. A piece cannot be captured until it has moved at least once.
+          </p>
+
           <h3>Shrink rings (optional)</h3>
           <p>
             When <strong>Shrink rings</strong> is On, each empty edge of the playable area is cut away
@@ -546,7 +602,7 @@
 
     <div id="toast-host" class="toast-host" aria-live="polite"></div>
 
-    <script type="module" src="./src/main.js?v=shrink2"></script>
+    <script type="module" src="./src/main.js?v=career1"></script>
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {

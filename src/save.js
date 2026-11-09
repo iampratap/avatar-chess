@@ -4,6 +4,7 @@ import {
   createInitialState,
   applyMove,
   clearPendingPowerSwitch,
+  resolveDicePass,
   PLAYERS,
 } from './game.js';
 
@@ -29,6 +30,8 @@ export function buildReplayPayload(state) {
     moves: state.history,
     result: state.winner ? { winner: state.winner } : null,
     shrinkRings: !!state.shrinkRings,
+    diceMode: !!state.diceMode,
+    dicePieces: state.diceMode ? state.dicePieces || 4 : null,
   };
 }
 
@@ -46,6 +49,8 @@ export function encodeReplayHash(payload) {
     moves: payload.moves,
     result: payload.result ?? null,
     shrinkRings: !!payload.shrinkRings,
+    diceMode: !!payload.diceMode,
+    dicePieces: payload.diceMode ? payload.dicePieces || 4 : null,
   });
   const bytes = new TextEncoder().encode(json);
   let bin = '';
@@ -128,20 +133,41 @@ export function applyReplayPayload(data) {
   if (!Array.isArray(data.moves)) throw new Error('Replay missing moves.');
 
   const shrinkRings = !!data.shrinkRings;
-  let state = createInitialState({ shrinkRings });
+  const diceMode = !!data.diceMode;
+  const dicePieces = data.dicePieces || 4;
+  let state = createInitialState({ shrinkRings, diceMode, dicePieces });
   for (let i = 0; i < data.moves.length; i++) {
     const m = data.moves[i];
-    if (!m?.from || !m?.to || !m?.player) {
+    if (!m?.player) {
+      throw new Error(`Replay move ${i} is malformed.`);
+    }
+    if (!(m.pass || m.power === 'pass') && (!m?.from || !m?.to)) {
       throw new Error(`Replay move ${i} is malformed.`);
     }
     state.turnIndex = PLAYERS.indexOf(m.player);
     if (state.turnIndex < 0) throw new Error(`Replay move ${i} has invalid player.`);
     state.round = m.round || state.round;
+    if (diceMode) {
+      state = {
+        ...state,
+        diceFace: m.diceFace ?? null,
+        dicePower: m.power,
+        diceRolledThisTurn: true,
+      };
+    }
     const before = state.history.length;
-    state = applyMove(state, m.from, m.to);
+    if (m.pass || m.power === 'pass') {
+      state = resolveDicePass(state);
+    } else {
+      state = applyMove(state, m.from, m.to);
+    }
     state = clearPendingPowerSwitch(state);
     if (state.history.length !== before + 1) {
-      throw new Error(`Replay move ${i} (${m.from}→${m.to}) is illegal.`);
+      throw new Error(
+        m.pass || m.power === 'pass'
+          ? `Replay pass ${i} failed.`
+          : `Replay move ${i} (${m.from}→${m.to}) is illegal.`
+      );
     }
   }
 
@@ -149,6 +175,8 @@ export function applyReplayPayload(data) {
     moves: data.moves,
     result: data.result ?? null,
     shrinkRings,
+    diceMode,
+    dicePieces: diceMode ? dicePieces : null,
   };
 }
 
@@ -186,6 +214,12 @@ function buildStatusPayload(state) {
         ? { ...state.boardZone }
         : { minFile: 0, maxFile: 7, minRank: 0, maxRank: 7 },
       boardMargin: state.boardMargin || 0,
+      diceMode: !!state.diceMode,
+      dicePieces: state.diceMode ? state.dicePieces || 4 : null,
+      diceFace: state.diceFace ?? null,
+      dicePower: state.dicePower ?? null,
+      diceRolledThisTurn: !!state.diceRolledThisTurn,
+      movedPieceIds: state.movedPieceIds ? { ...state.movedPieceIds } : {},
     },
   };
 }

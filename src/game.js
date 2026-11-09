@@ -3,14 +3,31 @@
 export const PLAYERS = ['A', 'B', 'C', 'D'];
 export const POWERS = ['rook', 'knight', 'bishop'];
 export const POWER_OFFSET = { A: 0, B: 1, C: 2, D: 0 };
-export const POWER_SYMBOL = { rook: '♖', knight: '♘', bishop: '♗' };
-export const POWER_LABEL = { rook: 'Rook', knight: 'Knight', bishop: 'Bishop' };
+export const POWER_SYMBOL = {
+  rook: '♖',
+  knight: '♘',
+  bishop: '♗',
+  pawn: '♟',
+  queen: '♕',
+  pass: '⊘',
+};
+export const POWER_LABEL = {
+  rook: 'Rook',
+  knight: 'Knight',
+  bishop: 'Bishop',
+  pawn: 'Pawn',
+  queen: 'Queen',
+  pass: 'Pass',
+};
 export const PLAYER_COLOR = {
   A: '#3b82f6',
   B: '#ef4444',
   C: '#22c55e',
   D: '#f59e0b',
 };
+
+/** Dice faces (1–6): pawn, knight, bishop, rook, queen, pass. */
+export const DICE_FACES = ['pawn', 'knight', 'bishop', 'rook', 'queen', 'pass'];
 
 /**
  * Symmetric home-row opening (round-1 capture-safe).
@@ -27,6 +44,38 @@ export const STARTING_POSITIONS = {
   D1: 'a2',
   D2: 'a3',
 };
+
+/** Dice mode home-edge slots (centered subset used for 2–4 pieces). */
+export const DICE_EDGE_SLOTS = {
+  A: ['a8', 'b8', 'c8', 'd8'],
+  B: ['h5', 'h6', 'h7', 'h8'],
+  C: ['e1', 'f1', 'g1', 'h1'],
+  D: ['a2', 'a3', 'a4', 'a5'],
+};
+
+export function clampDicePieces(n) {
+  const v = Number(n) | 0;
+  if (v < 2) return 2;
+  if (v > 4) return 4;
+  return v;
+}
+
+/** Dice opening layout for `count` pieces per player (2–4). */
+export function diceStartingPositions(count = 4) {
+  const n = clampDicePieces(count);
+  const layout = {};
+  for (const p of PLAYERS) {
+    const slots = DICE_EDGE_SLOTS[p];
+    const start = Math.floor((slots.length - n) / 2);
+    for (let i = 0; i < n; i++) {
+      layout[`${p}${i + 1}`] = slots[start + i];
+    }
+  }
+  return layout;
+}
+
+/** Default 4-piece dice layout (compat). */
+export const STARTING_POSITIONS_DICE = diceStartingPositions(4);
 
 const FILES = 'abcdefgh';
 
@@ -173,6 +222,16 @@ export function getPower(player, round) {
   return POWERS[(round - 1 + offset) % 3];
 }
 
+/** Active power for the current turn (dice face or classic rotation). */
+export function getActivePower(state, player) {
+  const p = player ?? state?.players?.[state.turnIndex] ?? 'A';
+  if (state?.diceMode) {
+    if (state.dicePower && DICE_FACES.includes(state.dicePower)) return state.dicePower;
+    return 'pawn';
+  }
+  return getPower(p, state.round);
+}
+
 /** Next `count` powers after the current round (upcoming rotations). */
 export function upcomingPowers(player, round, count = 3) {
   const out = [];
@@ -184,6 +243,42 @@ export function powersForRound(round) {
   const out = {};
   for (const p of PLAYERS) out[p] = getPower(p, round);
   return out;
+}
+
+export function rollDie(rng = Math.random) {
+  const face = 1 + Math.floor(rng() * 6);
+  return { face, power: DICE_FACES[face - 1] };
+}
+
+/** Roll (or keep) this turn's dice power (RNG fallback when no 3D toss). */
+export function ensureDiceRolled(state, rng = Math.random) {
+  if (!state?.diceMode) return state;
+  if (state.winner) return state;
+  if (state.diceRolledThisTurn && state.dicePower) return state;
+  const { face, power } = rollDie(rng);
+  return applyDiceFace(state, face);
+}
+
+/** Apply a physical die result (1–6) after the 3D toss lands. */
+export function applyDiceFace(state, face) {
+  if (!state?.diceMode) return state;
+  const pip = Math.max(1, Math.min(6, face | 0));
+  return {
+    ...state,
+    diceFace: pip,
+    dicePower: DICE_FACES[pip - 1],
+    diceRolledThisTurn: true,
+  };
+}
+
+export function clearDiceForNextTurn(state) {
+  if (!state?.diceMode) return state;
+  return {
+    ...state,
+    diceFace: null,
+    dicePower: null,
+    diceRolledThisTurn: false,
+  };
 }
 
 function emptyBoard() {
@@ -203,11 +298,19 @@ export function createControllers(humans = 4) {
   return controllers;
 }
 
-export function createInitialState({ humans = 4, controllers, shrinkRings = false } = {}) {
+export function createInitialState({
+  humans = 4,
+  controllers,
+  shrinkRings = false,
+  diceMode = false,
+  dicePieces = 4,
+} = {}) {
   const board = emptyBoard();
   const piecesLeft = { A: 0, B: 0, C: 0, D: 0 };
+  const pieceCount = diceMode ? clampDicePieces(dicePieces) : 2;
+  const layout = diceMode ? diceStartingPositions(pieceCount) : STARTING_POSITIONS;
 
-  for (const [id, sq] of Object.entries(STARTING_POSITIONS)) {
+  for (const [id, sq] of Object.entries(layout)) {
     const player = id[0];
     const { file, rank } = algebraicToCoords(sq);
     board[rank][file] = { player, id };
@@ -231,6 +334,13 @@ export function createInitialState({ humans = 4, controllers, shrinkRings = fals
     boardZone: defaultBoardZone(),
     boardMargin: 0, // legacy mirror of symmetric inset
     justCollapsed: false,
+    diceMode: !!diceMode,
+    dicePieces: diceMode ? pieceCount : null,
+    diceFace: null,
+    dicePower: null,
+    diceRolledThisTurn: false,
+    /** Piece ids that have moved at least once (spawn protection in dice mode). */
+    movedPieceIds: {},
   };
 }
 
@@ -313,41 +423,8 @@ function slideMoves(board, file, rank, player, directions, margin = 0) {
   return moves;
 }
 
-export function getLegalMoves(board, file, rank, power, player, zoneOrMargin = 0) {
-  const cell = board[rank]?.[file];
-  if (!cell || cell.player !== player) return [];
-  if (!isPlayableSquare(file, rank, zoneOrMargin)) return [];
-
-  if (power === 'rook') {
-    return slideMoves(board, file, rank, player, [
-      [1, 0],
-      [-1, 0],
-      [0, 1],
-      [0, -1],
-    ], zoneOrMargin);
-  }
-
-  if (power === 'bishop') {
-    return slideMoves(board, file, rank, player, [
-      [1, 1],
-      [1, -1],
-      [-1, 1],
-      [-1, -1],
-    ], zoneOrMargin);
-  }
-
-  // knight — may jump over removed squares, but must land in the playable zone
+function stepMoves(board, file, rank, player, deltas, zoneOrMargin = 0) {
   const moves = [];
-  const deltas = [
-    [1, 2],
-    [1, -2],
-    [-1, 2],
-    [-1, -2],
-    [2, 1],
-    [2, -1],
-    [-2, 1],
-    [-2, -1],
-  ];
   for (const [df, dr] of deltas) {
     const f = file + df;
     const r = rank + dr;
@@ -359,12 +436,126 @@ export function getLegalMoves(board, file, rank, power, player, zoneOrMargin = 0
   return moves;
 }
 
+/** Unmoved pieces are immune to capture (dice mode spawn shield). */
+export function filterProtectedCaptures(board, moves, movedPieceIds, protectUnmoved) {
+  if (!protectUnmoved) return moves;
+  const moved = movedPieceIds || {};
+  return moves.filter((m) => {
+    if (!m.capture) return true;
+    const target = board[m.rank]?.[m.file];
+    if (!target) return true;
+    return !!moved[target.id];
+  });
+}
+
+export function getLegalMoves(
+  board,
+  file,
+  rank,
+  power,
+  player,
+  zoneOrMargin = 0,
+  opts = {}
+) {
+  const cell = board[rank]?.[file];
+  if (!cell || cell.player !== player) return [];
+  if (!isPlayableSquare(file, rank, zoneOrMargin)) return [];
+  if (power === 'pass') return [];
+
+  let moves = [];
+
+  if (power === 'pawn') {
+    // One step orthogonally (move or capture)
+    moves = stepMoves(
+      board,
+      file,
+      rank,
+      player,
+      [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ],
+      zoneOrMargin
+    );
+  } else if (power === 'rook') {
+    moves = slideMoves(board, file, rank, player, [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ], zoneOrMargin);
+  } else if (power === 'bishop') {
+    moves = slideMoves(board, file, rank, player, [
+      [1, 1],
+      [1, -1],
+      [-1, 1],
+      [-1, -1],
+    ], zoneOrMargin);
+  } else if (power === 'queen') {
+    moves = [
+      ...slideMoves(board, file, rank, player, [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ], zoneOrMargin),
+      ...slideMoves(board, file, rank, player, [
+        [1, 1],
+        [1, -1],
+        [-1, 1],
+        [-1, -1],
+      ], zoneOrMargin),
+    ];
+  } else {
+    // knight — may jump over removed squares, but must land in the playable zone
+    moves = stepMoves(
+      board,
+      file,
+      rank,
+      player,
+      [
+        [1, 2],
+        [1, -2],
+        [-1, 2],
+        [-1, -2],
+        [2, 1],
+        [2, -1],
+        [-2, 1],
+        [-2, -1],
+      ],
+      zoneOrMargin
+    );
+  }
+
+  return filterProtectedCaptures(
+    board,
+    moves,
+    opts.movedPieceIds,
+    opts.protectUnmoved
+  );
+}
+
+function moveOpts(state) {
+  return {
+    movedPieceIds: state.movedPieceIds || {},
+    protectUnmoved: !!state.diceMode,
+  };
+}
+
+function legalForState(state, file, rank, power, player) {
+  const zone = state.boardZone ?? state.boardMargin ?? 0;
+  return getLegalMoves(state.board, file, rank, power, player, zone, moveOpts(state));
+}
+
 export function selectSquare(state, square) {
   if (state.winner) return state;
+  if (state.diceMode && state.dicePower === 'pass') return state;
   const player = currentPlayer(state);
   const { file, rank } = algebraicToCoords(square);
   const cell = state.board[rank][file];
-  const zone = state.boardZone ?? state.boardMargin ?? 0;
+  const power = getActivePower(state, player);
 
   if (state.selected) {
     const legal = state.legalMoves.find((m) => m.file === file && m.rank === rank);
@@ -372,8 +563,7 @@ export function selectSquare(state, square) {
 
     // re-select own piece
     if (cell && cell.player === player) {
-      const power = getPower(player, state.round);
-      const legalMoves = getLegalMoves(state.board, file, rank, power, player, zone);
+      const legalMoves = legalForState(state, file, rank, power, player);
       return { ...state, selected: square, legalMoves };
     }
 
@@ -381,8 +571,7 @@ export function selectSquare(state, square) {
   }
 
   if (cell && cell.player === player) {
-    const power = getPower(player, state.round);
-    const legalMoves = getLegalMoves(state.board, file, rank, power, player, zone);
+    const legalMoves = legalForState(state, file, rank, power, player);
     return { ...state, selected: square, legalMoves };
   }
 
@@ -417,10 +606,9 @@ function advanceTurn(state) {
   if (movesThisRound >= state.livingAtRoundStart) {
     round += 1;
     movesThisRound = 0;
-    pendingPowerSwitch = true;
-    // After round bump, turn continues with next living player already computed.
-    // Reset living count for the new round.
-    return {
+    // Classic mode morphs on round change; dice mode re-rolls each turn instead
+    pendingPowerSwitch = !state.diceMode;
+    return clearDiceForNextTurn({
       ...state,
       turnIndex,
       round,
@@ -429,10 +617,10 @@ function advanceTurn(state) {
       selected: null,
       legalMoves: [],
       pendingPowerSwitch,
-    };
+    });
   }
 
-  return {
+  return clearDiceForNextTurn({
     ...state,
     turnIndex,
     round,
@@ -440,19 +628,28 @@ function advanceTurn(state) {
     selected: null,
     legalMoves: [],
     pendingPowerSwitch: false,
-  };
+  });
 }
 
 export function applyMove(state, fromSq, toSq) {
   const player = currentPlayer(state);
-  const power = getPower(player, state.round);
+  const power = getActivePower(state, player);
+  if (power === 'pass') return state;
   const from = algebraicToCoords(fromSq);
   const to = algebraicToCoords(toSq);
   const piece = state.board[from.rank][from.file];
   if (!piece || piece.player !== player) return state;
 
   const zone = state.boardZone ?? state.boardMargin ?? 0;
-  const legal = getLegalMoves(state.board, from.file, from.rank, power, player, zone);
+  const legal = getLegalMoves(
+    state.board,
+    from.file,
+    from.rank,
+    power,
+    player,
+    zone,
+    moveOpts(state)
+  );
   const ok = legal.find((m) => m.file === to.file && m.rank === to.rank);
   if (!ok) return state;
 
@@ -462,12 +659,16 @@ export function applyMove(state, fromSq, toSq) {
   let captured = null;
 
   if (target) {
+    // Extra guard: dice spawn shield
+    if (state.diceMode && !(state.movedPieceIds || {})[target.id]) return state;
     captured = { player: target.player, id: target.id, at: toSq };
     piecesLeft[target.player] -= 1;
   }
 
   board[to.rank][to.file] = piece;
   board[from.rank][from.file] = null;
+
+  const movedPieceIds = { ...(state.movedPieceIds || {}), [piece.id]: true };
 
   const historyEntry = {
     i: state.history.length,
@@ -479,12 +680,14 @@ export function applyMove(state, fromSq, toSq) {
     pieceId: piece.id,
     captured,
     boardZone: normalizeZone(zone),
+    diceFace: state.diceFace ?? null,
   };
 
   let next = {
     ...state,
     board,
     piecesLeft,
+    movedPieceIds,
     history: [...state.history, historyEntry],
     selected: null,
     legalMoves: [],
@@ -518,17 +721,47 @@ export function passTurn(state) {
   return maybeCollapseRings(next);
 }
 
+/** Dice face 6 — skip the turn and record a pass in history. */
+export function resolveDicePass(state) {
+  if (!state?.diceMode || state.dicePower !== 'pass' || state.winner) return state;
+  const player = currentPlayer(state);
+  const historyEntry = {
+    i: state.history.length,
+    player,
+    power: 'pass',
+    round: state.round,
+    from: null,
+    to: null,
+    pieceId: null,
+    captured: null,
+    pass: true,
+    diceFace: state.diceFace ?? 6,
+  };
+  let next = {
+    ...state,
+    history: [...state.history, historyEntry],
+    lastMove: historyEntry,
+    selected: null,
+    legalMoves: [],
+    justCollapsed: false,
+  };
+  next = advanceTurn(next);
+  return maybeCollapseRings(next);
+}
+
 /** All legal moves for a player this turn. */
 export function listPlayerMoves(state, player) {
-  const power = getPower(player, state.round);
+  const power = getActivePower(state, player);
+  if (power === 'pass') return [];
   const zone = state.boardZone ?? state.boardMargin ?? 0;
+  const opts = moveOpts(state);
   const moves = [];
   for (let rank = 0; rank < 8; rank++) {
     for (let file = 0; file < 8; file++) {
       const cell = state.board[rank][file];
       if (!cell || cell.player !== player) continue;
       const from = coordsToAlgebraic(file, rank);
-      for (const m of getLegalMoves(state.board, file, rank, power, player, zone)) {
+      for (const m of getLegalMoves(state.board, file, rank, power, player, zone, opts)) {
         moves.push({
           from,
           to: coordsToAlgebraic(m.file, m.rank),
@@ -582,6 +815,12 @@ export function hydrateFromStatus(statusState) {
       : normalizeZone(statusState.boardMargin ?? 0),
     boardMargin: statusState.boardMargin ?? 0,
     justCollapsed: false,
+    diceMode: !!statusState.diceMode,
+    dicePieces: statusState.diceMode ? clampDicePieces(statusState.dicePieces ?? 4) : null,
+    diceFace: statusState.diceFace ?? null,
+    dicePower: statusState.dicePower ?? null,
+    diceRolledThisTurn: !!statusState.diceRolledThisTurn,
+    movedPieceIds: statusState.movedPieceIds ? { ...statusState.movedPieceIds } : {},
   };
 }
 
@@ -590,6 +829,8 @@ export function stateAfterMoves(moves, upTo, controllers, opts = {}) {
   let state = createInitialState({
     controllers: controllers || createControllers(4),
     shrinkRings: !!opts.shrinkRings,
+    diceMode: !!opts.diceMode,
+    dicePieces: opts.dicePieces ?? 4,
   });
   const n = Math.max(0, Math.min(upTo, moves.length));
   for (let i = 0; i < n; i++) {
@@ -597,7 +838,19 @@ export function stateAfterMoves(moves, upTo, controllers, opts = {}) {
     // Force turn to the move's player (history is authoritative for replay)
     state.turnIndex = PLAYERS.indexOf(m.player);
     state.round = m.round;
-    state = applyMove(state, m.from, m.to);
+    if (state.diceMode) {
+      state = {
+        ...state,
+        diceFace: m.diceFace ?? null,
+        dicePower: m.power,
+        diceRolledThisTurn: true,
+      };
+    }
+    if (m.pass || m.power === 'pass') {
+      state = resolveDicePass(state);
+    } else {
+      state = applyMove(state, m.from, m.to);
+    }
     state = clearPendingPowerSwitch(state);
   }
   return {
@@ -616,11 +869,17 @@ export function undoLastMove(state) {
   const moves = state.history.slice(0, -1);
   return stateAfterMoves(moves, moves.length, state.controllers, {
     shrinkRings: state.shrinkRings,
+    diceMode: state.diceMode,
+    dicePieces: state.dicePieces ?? 4,
   });
 }
 
 export function powerHintText(power) {
+  if (power === 'pawn') return 'Pawn: one step along a row or column.';
   if (power === 'rook') return 'Rook: any distance along a row or column (path clear).';
   if (power === 'knight') return 'Knight: L-shape (2×1), can jump.';
+  if (power === 'bishop') return 'Bishop: any distance diagonally (path clear).';
+  if (power === 'queen') return 'Queen: rook + bishop slides (path clear).';
+  if (power === 'pass') return 'Pass: skip this turn — no move.';
   return 'Bishop: any distance diagonally (path clear).';
 }

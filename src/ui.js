@@ -6,6 +6,7 @@ import {
   POWER_SYMBOL,
   currentPlayer,
   getPower,
+  getActivePower,
   upcomingPowers,
   hasMovedThisRound,
   powersForRound,
@@ -247,7 +248,6 @@ export function renderCareerPanel(summary, achievements = []) {
       <span><b>${summary.eliminations}</b> KOs</span>
       <span><b>${unlocked}</b>/${achievements.length || 7} badges</span>
     </div>
-    <p class="career-fav">Favorite power: ${summary.favoritePower}</p>
     <div class="career-badges" aria-label="Achievements">
       ${achievements
         .map(
@@ -337,11 +337,20 @@ export function updateHUD(state, mode = 'playing') {
 
   const powers = powersForRound(state.round);
   const canToggle = mode === 'playing' && !state.winner;
+  const diceMode = !!state.diceMode;
+  const diceReady = !!(diceMode && state.diceRolledThisTurn && state.dicePower);
   const powersKey = PLAYERS.map((p) => {
     const alive = state.piecesLeft[p] > 0;
     const active = mode !== 'replay' && !state.winner && currentPlayer(state) === p;
     const ai = isAiPlayer(state, p);
-    return `${p}:${powers[p]}:${alive ? 1 : 0}:${active ? 1 : 0}:${ai ? 1 : 0}:${state.piecesLeft[p]}`;
+    const shown = diceMode
+      ? active
+        ? diceReady
+          ? state.dicePower
+          : 'rolling'
+        : '—'
+      : powers[p];
+    return `${p}:${shown}:${alive ? 1 : 0}:${active ? 1 : 0}:${ai ? 1 : 0}:${state.piecesLeft[p]}`;
   }).join('|');
 
   if (powersEl.dataset.uiKey !== powersKey) {
@@ -351,16 +360,34 @@ export function updateHUD(state, mode = 'playing') {
       const active = mode !== 'replay' && !state.winner && currentPlayer(state) === p;
       const ai = isAiPlayer(state, p);
       const role = ai ? '<span class="pc-tag">PC</span>' : '<span class="pc-tag human-tag">You</span>';
-      const next = upcomingPowers(p, state.round, 3);
-      const nextLabel = next.map((pw) => POWER_SYMBOL[pw]).join(' → ');
-      const title = canToggle
-        ? `Click to switch Player ${p} to ${ai ? 'human' : 'PC'}. Next: ${next.map((pw) => POWER_LABEL[pw]).join(' → ')}`
-        : `Player ${p}. Next: ${next.map((pw) => POWER_LABEL[pw]).join(' → ')}`;
-      return `<button type="button" class="power-badge ui-enter ${alive ? '' : 'dead'} ${active ? 'active' : ''} ${canToggle ? 'toggleable' : ''}" style="--pc:${PLAYER_COLOR[p]};--enter-delay:${i * 45}ms" data-player="${p}" title="${title}" ${canToggle ? '' : 'disabled'}>
+      let nowPower = powers[p];
+      let nextHtml = '';
+      let title = canToggle
+        ? `Click to switch Player ${p} to ${ai ? 'human' : 'PC'}. Next: ${upcomingPowers(p, state.round, 3).map((pw) => POWER_LABEL[pw]).join(' → ')}`
+        : `Player ${p}. Next: ${upcomingPowers(p, state.round, 3).map((pw) => POWER_LABEL[pw]).join(' → ')}`;
+      if (diceMode) {
+        nowPower = active && diceReady ? state.dicePower : null;
+        title = canToggle
+          ? `Click to switch Player ${p} to ${ai ? 'human' : 'PC'} (dice mode)`
+          : `Player ${p} · dice mode`;
+      } else {
+        const nextLabel = upcomingPowers(p, state.round, 3)
+          .map((pw) => POWER_SYMBOL[pw])
+          .join(' → ');
+        nextHtml = `<span class="power-badge-next">next ${nextLabel}</span>`;
+      }
+      const nowText = nowPower
+        ? `${POWER_SYMBOL[nowPower] || ''} ${POWER_LABEL[nowPower] || nowPower}`
+        : diceMode
+          ? active
+            ? '🎲 …'
+            : ''
+          : '';
+      return `<button type="button" class="power-badge ui-enter ${alive ? '' : 'dead'} ${active ? 'active' : ''} ${canToggle ? 'toggleable' : ''} ${diceMode ? 'dice-mode' : ''}" style="--pc:${PLAYER_COLOR[p]};--enter-delay:${i * 45}ms" data-player="${p}" title="${title}" ${canToggle ? '' : 'disabled'}>
       <span class="power-badge-icon" aria-hidden="true">${p}</span>
       <span class="power-badge-text">
-        <span class="power-badge-now"><b>${p}</b>${role} ${POWER_SYMBOL[powers[p]]} ${POWER_LABEL[powers[p]]}</span>
-        <span class="power-badge-next">next ${nextLabel}</span>
+        <span class="power-badge-now"><b>${p}</b>${role} ${nowText}</span>
+        ${nextHtml}
         <small>×${state.piecesLeft[p]}</small>
       </span>
     </button>`;
@@ -398,40 +425,50 @@ export function updateHUD(state, mode = 'playing') {
   }
 
   const player = currentPlayer(state);
-  const power = getPower(player, state.round);
   const ai = isAiPlayer(state, player);
+  const waitingDice = !!(state.diceMode && !(state.diceRolledThisTurn && state.dicePower));
+  const power = waitingDice ? null : getActivePower(state, player);
+  const powerName = power ? POWER_LABEL[power] || power : '';
+  const powerSym = power ? POWER_SYMBOL[power] || '' : '';
+  const turnPowerBit = waitingDice ? 'rolling…' : `${powerName}${powerSym ? ` ${powerSym}` : ''}`;
 
   if (state.aiThinking || (ai && mode === 'playing')) {
-    setTextIfChanged(turnEl, `Player ${player} · PC · ${POWER_LABEL[power]}`, 'ui-fade');
+    setTextIfChanged(turnEl, `Player ${player} · PC · ${turnPowerBit}`, 'ui-fade');
     if (state.aiThinking) {
       setTextIfChanged(hintEl, `PC thinking… (Player ${player})`, 'ui-fade');
-      setTextIfChanged(detailEl, powerHintText(power), 'ui-fade');
+      setTextIfChanged(detailEl, power ? powerHintText(power) : '', 'ui-fade');
       return;
     }
   } else {
-    setTextIfChanged(
-      turnEl,
-      `Player ${player} · ${POWER_LABEL[power]} ${POWER_SYMBOL[power]}`,
-      'ui-fade'
-    );
+    setTextIfChanged(turnEl, `Player ${player} · ${turnPowerBit}`, 'ui-fade');
   }
 
-  if (ai) {
-    setTextIfChanged(hintEl, `Waiting for PC (Player ${player} · ${POWER_LABEL[power]})`, 'ui-fade');
+  if (waitingDice) {
+    setTextIfChanged(hintEl, 'Dice rolling…', 'ui-fade');
+    setTextIfChanged(detailEl, '', 'ui-fade');
+    return;
+  }
+
+  if (power === 'pass') {
+    setTextIfChanged(hintEl, 'Dice said Pass — skipping turn…', 'ui-fade');
+  } else if (ai) {
+    setTextIfChanged(hintEl, `Waiting for PC (Player ${player} · ${powerName})`, 'ui-fade');
   } else if (state.selected) {
     setTextIfChanged(
       hintEl,
-      'Click a highlighted square to move or capture · drag board to rotate',
+      state.diceMode
+        ? 'Unmoved pieces are safe from capture · click a highlighted square'
+        : 'Click a highlighted square to move or capture · drag board to rotate',
       'ui-fade'
     );
   } else {
     setTextIfChanged(
       hintEl,
-      `Select a piece (Player ${player} · ${POWER_LABEL[power]}) · drag board to rotate`,
+      `Select a piece (Player ${player} · ${powerName}) · drag board to rotate`,
       'ui-fade'
     );
   }
-  setTextIfChanged(detailEl, powerHintText(power), 'ui-fade');
+  setTextIfChanged(detailEl, power ? powerHintText(power) : '', 'ui-fade');
 }
 
 export function updateReplayBar(index, total, playing) {
@@ -449,11 +486,12 @@ function updateBoardSeats(state, mode, powers) {
     mode !== 'welcome' && !state.winner && !state.fxLocked && !state.pendingPowerSwitch
       ? currentPlayer(state)
       : null;
+  const diceMode = !!state.diceMode;
+  const diceReady = !!(diceMode && state.diceRolledThisTurn && state.dicePower);
 
   for (const el of root.querySelectorAll('.board-seat')) {
     const p = el.dataset.seat;
     const alive = (state.piecesLeft?.[p] ?? 0) > 0;
-    const power = powers[p];
     const ai = isAiPlayer(state, p);
     const isActive = active === p;
     const moved = hasMovedThisRound(state, p);
@@ -467,12 +505,33 @@ function updateBoardSeats(state, mode, powers) {
       return 'later';
     };
 
-    const structKey = `${alive ? 1 : 0}|${ai ? 1 : 0}|${power}|${state.piecesLeft[p]}`;
-    const ledKey = `${ledNow}|${ledNext}|${isActive ? 1 : 0}`;
+    let power = powers[p];
+    let powerLine = `<span class="sym">${POWER_SYMBOL[power]}</span>${POWER_LABEL[power]}`;
+    let title = `Player ${p} · now ${POWER_LABEL[power]} · next ${POWER_LABEL[upcomingPowers(p, state.round, 1)[0]]}`;
+    if (diceMode) {
+      if (isActive && diceReady) {
+        power = state.dicePower;
+        powerLine = `<span class="sym">${POWER_SYMBOL[power] || ''}</span>${POWER_LABEL[power] || power}`;
+        title = `Player ${p} · dice ${POWER_LABEL[power] || power}`;
+      } else if (isActive) {
+        power = 'rolling';
+        powerLine = 'Rolling…';
+        title = `Player ${p} · dice rolling`;
+      } else {
+        power = 'waiting';
+        powerLine = 'Dice';
+        title = `Player ${p} · dice mode`;
+      }
+    }
+
+    const structKey = `${alive ? 1 : 0}|${ai ? 1 : 0}|${power}|${state.piecesLeft[p]}|${diceMode ? 1 : 0}`;
+    const ledKey = diceMode
+      ? `dice|${isActive ? 1 : 0}|${diceReady ? state.dicePower : 'rolling'}`
+      : `${ledNow}|${ledNext}|${isActive ? 1 : 0}`;
     const card = el.querySelector('.board-seat-card');
 
     // Fast path: only LEDs / active state changed — animate lights in place
-    if (card && el.dataset.structKey === structKey && el.dataset.ledKey !== ledKey) {
+    if (!diceMode && card && el.dataset.structKey === structKey && el.dataset.ledKey !== ledKey) {
       card.classList.toggle('dead', !alive);
       card.classList.toggle('active', isActive);
       card.querySelectorAll('.edge-piece').forEach((piece) => {
@@ -491,16 +550,9 @@ function updateBoardSeats(state, mode, powers) {
 
     el.dataset.structKey = structKey;
     el.dataset.ledKey = ledKey;
-    el.innerHTML = `<div class="board-seat-card ui-enter ${alive ? '' : 'dead'} ${isActive ? 'active' : ''}" style="--pc:${PLAYER_COLOR[p]}" title="Player ${p} · now ${POWER_LABEL[power]} · next ${POWER_LABEL[upcomingPowers(p, state.round, 1)[0]]}">
-      <div class="board-seat-main">
-        <span class="board-seat-avatar" aria-hidden="true">${p}</span>
-        <span class="board-seat-meta">
-          <span class="board-seat-name">Player ${p}</span>
-          <span class="board-seat-power"><span class="sym">${POWER_SYMBOL[power]}</span>${POWER_LABEL[power]}</span>
-          <span class="board-seat-role">${ai ? 'PC' : 'Human'} · ×${state.piecesLeft[p]}</span>
-        </span>
-      </div>
-      <div class="board-seat-upcoming" aria-label="Powers Rook, Knight, Bishop">
+    const upcomingHtml = diceMode
+      ? ''
+      : `<div class="board-seat-upcoming" aria-label="Powers Rook, Knight, Bishop">
         ${POWERS.map((pw) => {
           const slot = ledFor(pw);
           const label =
@@ -514,7 +566,17 @@ function updateBoardSeats(state, mode, powers) {
               <span class="edge-piece-led" aria-hidden="true"></span>
             </span>`;
         }).join('<span class="edge-piece-gap" aria-hidden="true"></span>')}
+      </div>`;
+    el.innerHTML = `<div class="board-seat-card ui-enter ${alive ? '' : 'dead'} ${isActive ? 'active' : ''} ${diceMode ? 'dice-mode' : ''}" style="--pc:${PLAYER_COLOR[p]}" title="${title}">
+      <div class="board-seat-main">
+        <span class="board-seat-avatar" aria-hidden="true">${p}</span>
+        <span class="board-seat-meta">
+          <span class="board-seat-name">Player ${p}</span>
+          <span class="board-seat-power">${powerLine}</span>
+          <span class="board-seat-role">${ai ? 'PC' : 'Human'} · ×${state.piecesLeft[p]}</span>
+        </span>
       </div>
+      ${upcomingHtml}
     </div>`;
   }
 }

@@ -1,6 +1,7 @@
 import {
   PLAYERS,
   getPower,
+  getActivePower,
   getLegalMoves,
   listPlayerMoves,
   livingPlayers,
@@ -80,18 +81,31 @@ function scoreMove(state, move, profile) {
     }
   }
 
-  const power = getPower(player, state.round);
-  const mobility = getLegalMoves(board, to.file, to.rank, power, player, margin).length;
+  const power = getActivePower(state, player);
+  const moveOpts = {
+    movedPieceIds: { ...(state.movedPieceIds || {}), [move.pieceId]: true },
+    protectUnmoved: !!state.diceMode,
+  };
+  const mobility = getLegalMoves(
+    board,
+    to.file,
+    to.rank,
+    power,
+    player,
+    margin,
+    moveOpts
+  ).length;
   score += mobility * profile.mobilityWeight;
 
   // Hard: look one ply ahead for hanging captures against us after move
   if (profile.id === 'hard' && opp) {
     const oppMoves = [];
+    const oppPower = state.diceMode ? 'queen' : getPower(opp, state.round);
     for (let r = 0; r < 8; r++) {
       for (let f = 0; f < 8; f++) {
         const cell = board[r][f];
         if (!cell || cell.player !== opp) continue;
-        for (const m of getLegalMoves(board, f, r, getPower(opp, state.round), opp, margin)) {
+        for (const m of getLegalMoves(board, f, r, oppPower, opp, margin, moveOpts)) {
           if (m.capture) oppMoves.push(m);
         }
       }

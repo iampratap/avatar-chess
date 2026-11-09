@@ -51,6 +51,7 @@ Each later round shifts every player to the next power (Rook → Knight → Bish
 - **PC difficulty** — Easy / Normal / Hard
 - **Blitz** — optional 20s / 45s per-turn clock
 - **Shrink rings** — optional mode: any empty board edge is removed so play tightens inward
+- **Dice powers** — optional d6 mode (pawn/knight/bishop/rook/queen/pass), choose 2–4 pieces each, unmoved pieces can't be captured
 - **Daily Challenge** — 1 human vs Hard PC (local, once per day tracking)
 - Career stats, win streaks, and local achievement badges
 - Rematch · shuffle seats, capture/elimination juice, win fanfare

@@ -175,8 +175,113 @@ body {
 .match-options {
   display: grid;
   gap: 0.65rem;
-  margin: 0 auto 1.15rem;
-  max-width: 28rem;
+  margin: 0;
+  max-width: none;
+  width: 100%;
+  text-align: left;
+}
+
+.welcome-options-btn {
+  position: fixed;
+  top: max(1rem, env(safe-area-inset-top));
+  right: max(1rem, env(safe-area-inset-right));
+  z-index: 36;
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.78rem;
+  padding: 0.65rem 1rem;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+  transition: border-color 0.2s ease, transform 0.2s ease, background 0.2s ease;
+}
+
+.welcome-options-btn:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.welcome-options-btn[aria-expanded='true'] {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.welcome-options-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 34;
+  background: rgba(4, 6, 12, 0.55);
+  backdrop-filter: blur(3px);
+}
+
+.welcome-options-backdrop[hidden] {
+  display: none !important;
+}
+
+.welcome-options-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 35;
+  width: min(360px, 92vw);
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: max(1rem, env(safe-area-inset-top)) 1rem max(1.25rem, env(safe-area-inset-bottom));
+  border-left: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 92%, #000 8%);
+  box-shadow: -18px 0 48px rgba(0, 0, 0, 0.4);
+  overflow: auto;
+  transform: translateX(0);
+  animation: welcomeOptionsIn 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.welcome-options-drawer[hidden] {
+  display: none !important;
+}
+
+@keyframes welcomeOptionsIn {
+  from {
+    opacity: 0.6;
+    transform: translateX(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.welcome-options-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.welcome-options-head h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.55rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--accent);
+}
+
+.welcome-options-body {
+  flex: 1;
+}
+
+.welcome-options-body .picker-hint {
+  margin-top: 0.45rem;
 }
 
 .picker-options.three {
@@ -206,12 +311,6 @@ body {
   font-weight: 700;
 }
 
-.career-fav {
-  margin: 0.45rem 0 0.55rem;
-  font-size: 0.78rem;
-  color: var(--muted);
-}
-
 .career-badges {
   display: flex;
   flex-wrap: wrap;
@@ -236,6 +335,41 @@ body {
 
 .welcome-share-row {
   margin-top: 0.55rem;
+}
+
+.dice-hud {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 0.15rem 0 0.4rem;
+  padding: 0.4rem 0.55rem;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--line));
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+}
+
+.dice-kicker {
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.dice-face {
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 0.4rem;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 1.05rem;
+  background: var(--ink);
+  color: var(--bg0);
+}
+
+.dice-power {
+  font-size: 0.9rem;
+  font-weight: 650;
 }
 
 .blitz-hud {
@@ -319,6 +453,17 @@ body {
   text-transform: uppercase;
   color: var(--accent);
   font-weight: 600;
+}
+
+.picker-label.sub {
+  margin: 0.75rem 0 0.45rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+
+.dice-pieces-wrap[hidden] {
+  display: none !important;
 }
 
 .picker-options {
@@ -2240,6 +2385,7 @@ body[data-training='1'] .coach-popup {
   .modal:not([hidden]) .modal-card,
   .modal:not([hidden]) .manual,
   .modal:not([hidden]) .settings,
+  .welcome-options-drawer:not([hidden]),
   .replay-bar:not([hidden]),
   .save-error:not([hidden]),
   [data-save-error]:not([hidden]) {

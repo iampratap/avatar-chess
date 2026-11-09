@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import {
   PLAYER_COLOR,
   getPower,
+  getActivePower,
   coordsToAlgebraic,
   algebraicToCoords,
   currentPlayer,
@@ -10,6 +11,7 @@ import {
   PLAYERS,
 } from './game.js';
 import { createPowerFx } from './powerFx.js';
+import { createDice3D } from './dice3d.js';
 import { BOARD_THEMES, PIECE_THEMES, UI_SCENE, loadThemePrefs } from './themes.js';
 
 const TILE = 1;
@@ -239,6 +241,22 @@ function buildForm(kind, color, pieceTheme) {
     );
     slit.position.y = 0.55;
     g.add(slit);
+  } else if (kind === 'queen') {
+    const base = addCast(new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.36, 0.14, 16), m()));
+    base.position.y = 0.07;
+    g.add(base);
+    const body = addCast(new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.28, 0.5, 16), m()));
+    body.position.y = 0.4;
+    g.add(body);
+    const crown = addCast(new THREE.Mesh(new THREE.ConeGeometry(0.26, 0.28, 8), m()));
+    crown.position.y = 0.78;
+    g.add(crown);
+    for (let i = 0; i < 5; i++) {
+      const ang = (i / 5) * Math.PI * 2;
+      const tip = addCast(new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), m()));
+      tip.position.set(Math.cos(ang) * 0.16, 0.92, Math.sin(ang) * 0.16);
+      g.add(tip);
+    }
   }
 
   return g;
@@ -254,6 +272,7 @@ export function createPieceMesh(player, id, pieceTheme) {
     rook: buildForm('rook', color, pieceTheme),
     knight: buildForm('knight', color, pieceTheme),
     bishop: buildForm('bishop', color, pieceTheme),
+    queen: buildForm('queen', color, pieceTheme),
   };
 
   for (const [name, form] of Object.entries(forms)) {
@@ -449,6 +468,7 @@ export function createBoard3D(container) {
   scene.add(pieceRoot);
 
   const powerFx = createPowerFx(scene);
+  const dice3d = createDice3D(scene);
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
   const tweens = [];
@@ -521,10 +541,16 @@ export function createBoard3D(container) {
         // Moving piece keeps the power used for that move until the tween finishes.
         const isActive = cell.player === active;
         const isMoving = animateMove && animateMove.pieceId === cell.id;
-        const power = getPower(cell.player, state.round);
+        // Dice mode: morph only after the die lands (pieces stay pawns while rolling)
+        const power = state.diceMode
+          ? state.diceRolledThisTurn
+            ? getActivePower(state, cell.player)
+            : 'pawn'
+          : getPower(cell.player, state.round);
         let form = 'pawn';
         if (isMoving) form = animateMove.power || power;
-        else if (isActive && !holdForms) form = power;
+        else if (isActive && !holdForms && power && power !== 'pass') form = power;
+        if (!mesh.userData.forms?.[form]) form = 'pawn';
         setPieceForm(mesh, form);
       }
     }
@@ -703,6 +729,7 @@ export function createBoard3D(container) {
 
     controls.update();
     powerFx.update(dt);
+    dice3d.update(dt);
     projectSeatOverlays();
     renderer.render(scene, camera);
     requestAnimationFrame(frame);
@@ -790,11 +817,16 @@ export function createBoard3D(container) {
     coachFocusPlayer = player || null;
   }
 
+  function playDiceRoll(face) {
+    return dice3d.playRoll(face);
+  }
+
   return {
     syncFromState,
     pickSquare,
     waitForTweens,
     powerFx,
+    playDiceRoll,
     controls,
     setThemes,
     getThemes,
@@ -807,6 +839,7 @@ export function createBoard3D(container) {
     domElement: renderer.domElement,
     dispose() {
       running = false;
+      dice3d.hide();
       ro.disconnect();
       controls.dispose();
       window.removeEventListener('resize', onResize);

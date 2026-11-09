@@ -1,5 +1,5 @@
 /* Avatar Chess — offline-friendly service worker */
-const CACHE_VERSION = 'avatar-chess-shrink2';
+const CACHE_VERSION = 'avatar-chess-career1';
 const PRECACHE = [
   './',
   './index.html',
@@ -24,6 +24,7 @@ const PRECACHE = [
   './src/sound.js',
   './src/powerFx.js',
   './src/meta.js',
+  './src/dice3d.js',
 ];
 
 self.addEventListener('install', (event) => {
