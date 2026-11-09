@@ -1256,6 +1256,36 @@ body[data-training='1'] .coach-popup {
   justify-content: flex-end;
 }
 
+.manual-contribute {
+  margin: 0.35rem 0 0.75rem;
+  padding: 0.85rem 0.95rem;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--line));
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+}
+
+.manual-contribute p {
+  margin: 0 0 0.55rem;
+}
+
+.manual-contribute ul {
+  margin: 0;
+  padding-left: 1.15rem;
+}
+
+.manual-contribute li {
+  margin: 0.35rem 0;
+}
+
+.manual-contribute a {
+  color: color-mix(in srgb, var(--accent) 85%, var(--ink));
+  font-weight: 600;
+}
+
+.manual-contribute-link {
+  margin: 0.75rem 0 0 !important;
+}
+
 .manual-body table {
   width: 100%;
   border-collapse: collapse;

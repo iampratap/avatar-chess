@@ -166,6 +166,8 @@ export function saveThemePrefs(prefs) {
 export function applyUiTheme(uiId) {
   const id = UI_THEMES[uiId] ? uiId : 'dark';
   document.documentElement.dataset.uiTheme = id;
+  const themeMeta = document.querySelector('meta[name="theme-color"]');
+  if (themeMeta) themeMeta.setAttribute('content', id === 'light' ? '#eef1f6' : '#0c0e14');
   return id;
 }
 

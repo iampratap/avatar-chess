@@ -2,10 +2,19 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="author" content="Pratapsingh Hajari" />
+    <meta name="description" content="Four-player power-chess — pawns that morph into Rook, Knight, or Bishop." />
+    <meta name="theme-color" content="#0c0e14" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Avatar Chess" />
     <title>Avatar Chess</title>
-    <link rel="stylesheet" href="./styles.css?v=settings-side1" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png" />
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+    <link rel="stylesheet" href="./styles.css?v=pwa1" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -391,12 +400,38 @@
             <li><strong>Looks</strong> — change app theme, board, and piece models anytime.</li>
           </ul>
 
+          <h3>Suggestions &amp; contribute</h3>
+          <div class="manual-contribute">
+            <p>
+              Have an idea, found a bug, or want a new feature? Write on GitHub — suggestions and pull requests are welcome.
+            </p>
+            <ul>
+              <li>
+                <a href="https://github.com/iampratap/avatar-chess/issues/new" target="_blank" rel="noopener noreferrer">Suggest a change or feature</a>
+                — open an issue and describe your idea.
+              </li>
+              <li>
+                <a href="https://github.com/iampratap/avatar-chess/issues" target="_blank" rel="noopener noreferrer">Browse issues</a>
+                — see what others have asked for.
+              </li>
+              <li>
+                <a href="https://github.com/iampratap/avatar-chess" target="_blank" rel="noopener noreferrer">Contribute on GitHub</a>
+                — fork the repo, improve the game, and send a pull request.
+              </li>
+            </ul>
+            <p class="manual-contribute-link">
+              <a class="btn small primary" href="https://github.com/iampratap/avatar-chess" target="_blank" rel="noopener noreferrer">Open GitHub →</a>
+            </p>
+          </div>
+
           <footer class="credit-footer in-modal">
             <p>© 2026 Pratapsingh Hajari</p>
             <p>
               <a href="tel:+919970530520">+91 99705 30520</a>
               ·
               <a href="https://wa.me/919970530520" target="_blank" rel="noopener noreferrer">WhatsApp</a>
+              ·
+              <a href="https://github.com/iampratap/avatar-chess" target="_blank" rel="noopener noreferrer">GitHub</a>
             </p>
           </footer>
         </div>
@@ -458,6 +493,13 @@
       </div>
     </div>
 
-    <script type="module" src="./src/main.js?v=manual1"></script>
+    <script type="module" src="./src/main.js?v=pwa1"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('./sw.js').catch(() => {});
+        });
+      }
+    </script>
   </body>
 </html>

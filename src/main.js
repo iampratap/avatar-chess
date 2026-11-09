@@ -181,21 +181,10 @@ function refresh(opts = {}) {
 
 async function runPowerSwitchIfNeeded() {
   if (!state.pendingPowerSwitch) return;
-  inputLocked = true;
-  state = { ...state, fxLocked: true, aiThinking: false };
-  // Hold current forms while the wizard circle plays, then morph on refresh
-  board.syncFromState(state, { holdForms: true });
-  updateHUD(state, 'playing');
-  // Brief pause so the last move settles before the round-change FX
-  await sleep(320);
-  sfx.powerSwitch();
-  await board.powerFx.play({ duration: 0.95 });
-  state = clearPendingPowerSwitch({ ...state, fxLocked: false });
+  state = clearPendingPowerSwitch({ ...state, fxLocked: false, aiThinking: false });
   inputLocked = false;
   sfx.morph();
-  refresh(); // morph into new-round powers with shimmer
-  // Let the morph read before the next turn/PC move
-  await sleep(220);
+  refresh();
 }
 
 function persistProgress() {
@@ -238,16 +227,15 @@ async function afterMoveEffects(move) {
     animateMove: move
       ? { pieceId: move.pieceId, power: move.power }
       : null,
-    holdForms: !!state.pendingPowerSwitch,
   });
   await board.waitForTweens();
 
-  // 2) Capture spark only if this is NOT also a round-end power switch
-  if (move?.captured && !state.pendingPowerSwitch) {
+  // 2) Capture spark
+  if (move?.captured) {
     await board.powerFx.playShort();
   }
 
-  // 3) Wizard power-switch (waits for completion), then morph
+  // 3) Round change — morph into new powers (no round-finish FX)
   await runPowerSwitchIfNeeded();
 
   persistProgress();
@@ -407,8 +395,6 @@ function enterReplay(moves) {
         await board.waitForTweens();
 
         if (roundEnded) {
-          sfx.powerSwitch();
-          await board.powerFx.play({ duration: 0.7 });
           sfx.morph();
           board.syncFromState(state);
         } else if (applied.captured) {

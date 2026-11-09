@@ -54,6 +54,15 @@ Each later round shifts every player to the next power (Rook → Knight → Bish
 - Sound effects with mute
 - Live **Train** coach (highlights legal lesson pieces, blocks other clicks)
 - Illustrated **User Manual**
+- **PWA** — installable on phone/desktop; works offline after the first visit (service worker + manifest)
+
+## Install as an app
+
+On supported browsers (Chrome / Edge / Safari / Android):
+
+1. Open [the live game](https://iampratap.github.io/avatar-chess/)
+2. Use **Install** / **Add to Home Screen** from the browser menu
+3. Launch like a native app (standalone window)
 
 ## Project layout
 
@@ -61,6 +70,9 @@ Each later round shifts every player to the next power (Rook → Knight → Bish
 web/
   index.html      # UI shells, modals, import map
   styles.css
+  manifest.webmanifest
+  sw.js           # Service worker (offline cache)
+  icons/          # PWA / favicon assets
   README.md
   src/
     main.js         # App wiring, training & game loop
