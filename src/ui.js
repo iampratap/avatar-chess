@@ -317,6 +317,24 @@ export function updateHUD(state, mode = 'playing') {
 
   setTextIfChanged(roundEl, `Round ${state.round}`, 'ui-fade');
 
+  const zoneEl = $('hud-zone');
+  if (zoneEl) {
+    if (state.shrinkRings) {
+      zoneEl.hidden = false;
+      const z = state.boardZone || {
+        minFile: 0,
+        maxFile: 7,
+        minRank: 0,
+        maxRank: 7,
+      };
+      const w = z.maxFile - z.minFile + 1;
+      const h = z.maxRank - z.minRank + 1;
+      setTextIfChanged(zoneEl, `Zone ${w}×${h}`, 'ui-fade');
+    } else {
+      zoneEl.hidden = true;
+    }
+  }
+
   const powers = powersForRound(state.round);
   const canToggle = mode === 'playing' && !state.winner;
   const powersKey = PLAYERS.map((p) => {

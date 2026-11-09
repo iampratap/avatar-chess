@@ -1,5 +1,5 @@
 /* Avatar Chess — offline-friendly service worker */
-const CACHE_VERSION = 'avatar-chess-joy1';
+const CACHE_VERSION = 'avatar-chess-shrink2';
 const PRECACHE = [
   './',
   './index.html',

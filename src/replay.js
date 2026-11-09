@@ -4,14 +4,23 @@ import { stateAfterMoves, clearPendingPowerSwitch } from './game.js';
  * Replay controller — rebuilds game state at a move index and drives autoplay.
  * onFrame may return a Promise (e.g. wait for move tween / FX).
  */
-export function createReplayController({ moves, onFrame, onIndexChange, stepGapMs = 420 }) {
+export function createReplayController({
+  moves,
+  onFrame,
+  onIndexChange,
+  stepGapMs = 420,
+  shrinkRings = false,
+  controllers = null,
+}) {
   let index = 0; // number of moves applied (0 = opening)
   let playing = false;
   let timer = null;
   let generation = 0;
 
   async function emit() {
-    const state = clearPendingPowerSwitch(stateAfterMoves(moves, index));
+    const state = clearPendingPowerSwitch(
+      stateAfterMoves(moves, index, controllers, { shrinkRings })
+    );
     await onFrame(state, index, moves.length);
     onIndexChange?.(index, moves.length, { playing });
   }

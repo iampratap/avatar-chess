@@ -28,6 +28,7 @@ export function buildReplayPayload(state) {
     startingPositions: { ...STARTING_POSITIONS },
     moves: state.history,
     result: state.winner ? { winner: state.winner } : null,
+    shrinkRings: !!state.shrinkRings,
   };
 }
 
@@ -44,6 +45,7 @@ export function encodeReplayHash(payload) {
     kind: 'replay',
     moves: payload.moves,
     result: payload.result ?? null,
+    shrinkRings: !!payload.shrinkRings,
   });
   const bytes = new TextEncoder().encode(json);
   let bin = '';
@@ -125,7 +127,8 @@ export function applyReplayPayload(data) {
   if (data.kind !== 'replay') throw new Error('Not a replay save.');
   if (!Array.isArray(data.moves)) throw new Error('Replay missing moves.');
 
-  let state = createInitialState();
+  const shrinkRings = !!data.shrinkRings;
+  let state = createInitialState({ shrinkRings });
   for (let i = 0; i < data.moves.length; i++) {
     const m = data.moves[i];
     if (!m?.from || !m?.to || !m?.player) {
@@ -145,6 +148,7 @@ export function applyReplayPayload(data) {
   return {
     moves: data.moves,
     result: data.result ?? null,
+    shrinkRings,
   };
 }
 
@@ -177,6 +181,11 @@ function buildStatusPayload(state) {
       movesThisRound: state.movesThisRound,
       livingAtRoundStart: state.livingAtRoundStart,
       controllers: state.controllers ? { ...state.controllers } : undefined,
+      shrinkRings: !!state.shrinkRings,
+      boardZone: state.boardZone
+        ? { ...state.boardZone }
+        : { minFile: 0, maxFile: 7, minRank: 0, maxRank: 7 },
+      boardMargin: state.boardMargin || 0,
     },
   };
 }

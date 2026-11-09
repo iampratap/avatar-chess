@@ -14,7 +14,7 @@
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png" />
     <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
-    <link rel="stylesheet" href="./styles.css?v=joy1" />
+    <link rel="stylesheet" href="./styles.css?v=shrink2" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -69,6 +69,14 @@
               <label class="picker-opt"><input type="radio" name="blitz" value="20" /> 20s</label>
               <label class="picker-opt"><input type="radio" name="blitz" value="45" /> 45s</label>
             </div>
+          </div>
+          <div class="humans-picker compact" role="group" aria-label="Shrink rings">
+            <p class="picker-label">Shrink rings</p>
+            <div class="picker-options">
+              <label class="picker-opt"><input type="radio" name="shrinkRings" value="off" checked /> Off</label>
+              <label class="picker-opt"><input type="radio" name="shrinkRings" value="on" /> On</label>
+            </div>
+            <p class="picker-hint">If any board edge is empty of pieces, that edge is cut away.</p>
           </div>
         </div>
 
@@ -167,6 +175,7 @@
         <div class="sidebar-body">
           <div class="hud-meta">
             <span id="hud-round">Round 1</span>
+            <span id="hud-zone" class="hud-zone" hidden>Zone 8×8</span>
             <span id="hud-turn">Player A</span>
           </div>
           <div id="blitz-hud" class="blitz-hud" hidden>
@@ -408,6 +417,13 @@
             <li>Move there. Landing on an opponent captures them. After the move, pieces return to pawns.</li>
           </ol>
 
+          <h3>Shrink rings (optional)</h3>
+          <p>
+            When <strong>Shrink rings</strong> is On, each empty edge of the playable area is cut away
+            (top, bottom, left, or right independently). Play stays inside the remaining rectangle down to 2×2.
+            Classic win still applies — last avatar standing.
+          </p>
+
           <h3>Humans vs PC</h3>
           <p>On the welcome screen choose 1–3 human players; remaining seats are PC. During a match you can tap a seat in the sidebar power list to toggle Human / PC.</p>
           <div class="help-figure humans-fig" aria-hidden="true">
@@ -530,7 +546,7 @@
 
     <div id="toast-host" class="toast-host" aria-live="polite"></div>
 
-    <script type="module" src="./src/main.js?v=joy1"></script>
+    <script type="module" src="./src/main.js?v=shrink2"></script>
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {

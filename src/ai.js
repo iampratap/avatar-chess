@@ -9,12 +9,12 @@ import {
 } from './game.js';
 import { DIFFICULTIES, getDifficulty } from './meta.js';
 
-function squareAttackedBy(board, file, rank, attacker, power) {
+function squareAttackedBy(board, file, rank, attacker, power, margin = 0) {
   for (let r = 0; r < 8; r++) {
     for (let f = 0; f < 8; f++) {
       const cell = board[r][f];
       if (!cell || cell.player !== attacker) continue;
-      const legal = getLegalMoves(board, f, r, power, attacker);
+      const legal = getLegalMoves(board, f, r, power, attacker, margin);
       if (legal.some((m) => m.file === file && m.rank === rank && m.capture)) return true;
     }
   }
@@ -22,7 +22,7 @@ function squareAttackedBy(board, file, rank, attacker, power) {
     for (let f = 0; f < 8; f++) {
       const cell = board[r][f];
       if (!cell || cell.player !== attacker) continue;
-      const legal = getLegalMoves(board, f, r, power, attacker);
+      const legal = getLegalMoves(board, f, r, power, attacker, margin);
       if (legal.some((m) => m.file === file && m.rank === rank)) return true;
     }
   }
@@ -54,6 +54,7 @@ function scoreMove(state, move, profile) {
   let score = Math.random() * profile.noise;
   const to = algebraicToCoords(move.to);
   const player = currentPlayer(state);
+  const margin = state.boardZone ?? state.boardMargin ?? 0;
 
   if (move.capture) {
     const victim = state.board[to.rank][to.file];
@@ -74,13 +75,13 @@ function scoreMove(state, move, profile) {
   const opp = nextLivingOpponent(state, player);
   if (opp) {
     const oppPower = getPower(opp, state.round);
-    if (squareAttackedBy(board, to.file, to.rank, opp, oppPower)) {
+    if (squareAttackedBy(board, to.file, to.rank, opp, oppPower, margin)) {
       score -= (move.capture ? 6 : 8) * profile.dangerWeight;
     }
   }
 
   const power = getPower(player, state.round);
-  const mobility = getLegalMoves(board, to.file, to.rank, power, player).length;
+  const mobility = getLegalMoves(board, to.file, to.rank, power, player, margin).length;
   score += mobility * profile.mobilityWeight;
 
   // Hard: look one ply ahead for hanging captures against us after move
@@ -90,7 +91,7 @@ function scoreMove(state, move, profile) {
       for (let f = 0; f < 8; f++) {
         const cell = board[r][f];
         if (!cell || cell.player !== opp) continue;
-        for (const m of getLegalMoves(board, f, r, getPower(opp, state.round), opp)) {
+        for (const m of getLegalMoves(board, f, r, getPower(opp, state.round), opp, margin)) {
           if (m.capture) oppMoves.push(m);
         }
       }

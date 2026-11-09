@@ -529,10 +529,44 @@ export function createBoard3D(container) {
       }
     }
 
+    const zone = state.shrinkRings
+      ? state.boardZone || {
+          minFile: state.boardMargin || 0,
+          maxFile: 7 - (state.boardMargin || 0),
+          minRank: state.boardMargin || 0,
+          maxRank: 7 - (state.boardMargin || 0),
+        }
+      : null;
     for (const tile of tiles) {
-      const selected = state.selected === tile.userData.square;
-      tile.material.emissive = new THREE.Color(selected ? 0x1d4ed8 : 0x000000);
-      tile.material.emissiveIntensity = selected ? 0.4 : 0;
+      const { file, rank, isLight, square } = tile.userData;
+      const playable =
+        !zone ||
+        (file >= zone.minFile &&
+          file <= zone.maxFile &&
+          rank >= zone.minRank &&
+          rank <= zone.maxRank);
+      const selected = state.selected === square;
+      tile.visible = true;
+      // Removed rings sink and dim; playable tiles stay normal
+      const targetY = playable ? 0 : -0.12;
+      if (Math.abs(tile.position.y - targetY) > 0.001) {
+        tile.position.y = targetY;
+      }
+      const base = isLight ? boardTheme.light : boardTheme.dark;
+      if (playable) {
+        tile.material.color.setHex(base);
+        tile.material.opacity = 1;
+        tile.material.transparent = false;
+        tile.material.emissive = new THREE.Color(selected ? 0x1d4ed8 : 0x000000);
+        tile.material.emissiveIntensity = selected ? 0.4 : 0;
+      } else {
+        tile.material.color.setHex(0x0a0c12);
+        tile.material.transparent = true;
+        tile.material.opacity = 0.28;
+        tile.material.emissive = new THREE.Color(0x000000);
+        tile.material.emissiveIntensity = 0;
+      }
+      tile.material.needsUpdate = true;
     }
 
     clearMarkers();

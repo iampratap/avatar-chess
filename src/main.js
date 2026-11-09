@@ -10,6 +10,7 @@ import {
   getPower,
   listPlayerMoves,
   currentPlayer,
+  zoneLabel,
 } from './game.js';
 import { chooseAiMove, aiThinkDelayMs } from './ai.js';
 import { createBoard3D } from './board3d.js';
@@ -186,6 +187,7 @@ function syncPrefsFromUi() {
   return savePrefs({
     difficulty: selectedRadio('difficulty', 'normal'),
     blitz: selectedRadio('blitz', 'off'),
+    shrinkRings: selectedRadio('shrinkRings', 'off') === 'on',
   });
 }
 
@@ -197,6 +199,15 @@ function applyPrefsToUi() {
   for (const el of document.querySelectorAll('input[name="blitz"]')) {
     el.checked = el.value === prefs.blitz;
   }
+  const shrinkVal = prefs.shrinkRings ? 'on' : 'off';
+  for (const el of document.querySelectorAll('input[name="shrinkRings"]')) {
+    el.checked = el.value === shrinkVal;
+  }
+}
+
+function matchOptionsFromPrefs() {
+  const prefs = loadPrefs();
+  return { shrinkRings: !!prefs.shrinkRings };
 }
 
 function refreshCareerUi() {
@@ -388,6 +399,20 @@ async function afterMoveEffects(move) {
     }
   }
 
+  // 2b) Board ring collapse
+  if (state.justCollapsed) {
+    const label = zoneLabel(state.boardZone ?? state.boardMargin);
+    showToast(`Empty edge removed — play zone is now ${label}`);
+    sfx.morph();
+    try {
+      navigator.vibrate?.([20, 30, 20]);
+    } catch {
+      /* ignore */
+    }
+    await board.powerFx.playShort();
+    state = { ...state, justCollapsed: false };
+  }
+
   // 3) Round change — morph into new powers (no round-finish FX)
   await runPowerSwitchIfNeeded();
 
@@ -559,7 +584,7 @@ function enterWelcome() {
   refreshCareerUi();
 }
 
-function enterReplay(moves) {
+function enterReplay(moves, { shrinkRings = false } = {}) {
   clearAiTimer();
   clearBlitzTimer();
   aiGeneration += 1;
@@ -574,6 +599,7 @@ function enterReplay(moves) {
   let lastIndex = 0;
   replay = createReplayController({
     moves,
+    shrinkRings,
     stepGapMs: 380,
     async onFrame(s, index, total) {
       const steppedForward = index === lastIndex + 1 && index > 0;
@@ -668,7 +694,7 @@ $('btn-play').addEventListener('click', () => {
     hideResumeBanner();
   }
   sfx.ui();
-  enterPlaying(createInitialState({ humans: selectedHumans() }), { daily: false });
+  enterPlaying(createInitialState({ humans: selectedHumans(), ...matchOptionsFromPrefs() }), { daily: false });
 });
 
 $('btn-daily')?.addEventListener('click', () => {
@@ -686,11 +712,11 @@ $('btn-daily')?.addEventListener('click', () => {
   for (const el of document.querySelectorAll('input[name="humans"]')) {
     el.checked = el.value === '1';
   }
-  enterPlaying(createInitialState({ humans: 1 }), { daily: true });
+  enterPlaying(createInitialState({ humans: 1, ...matchOptionsFromPrefs() }), { daily: true });
   showToast(isDailyDoneToday() ? 'Daily already cleared — play for a better score!' : 'Daily Challenge: beat Hard PC');
 });
 
-for (const name of ['difficulty', 'blitz']) {
+for (const name of ['difficulty', 'blitz', 'shrinkRings']) {
   document.querySelectorAll(`input[name="${name}"]`).forEach((el) => {
     el.addEventListener('change', () => {
       syncPrefsFromUi();
@@ -711,7 +737,7 @@ $('import-replay-file')?.addEventListener('change', async (e) => {
     const textFile = await readFileAsText(file);
     const data = parseJsonFile(textFile);
     const result = applyReplayPayload(data);
-    enterReplay(result.moves);
+    enterReplay(result.moves, { shrinkRings: result.shrinkRings });
     showToast('Replay loaded');
   } catch (err) {
     setSaveError(err.message || 'Could not import replay.');
@@ -874,14 +900,27 @@ $('btn-winner-again').addEventListener('click', () => {
   hideWinner();
   const controllers = state.controllers ? { ...state.controllers } : undefined;
   const daily = matchFlags.daily;
-  enterPlaying(createInitialState({ humans: selectedHumans(), controllers }), { daily });
+  enterPlaying(
+    createInitialState({
+      humans: selectedHumans(),
+      controllers,
+      shrinkRings: state.shrinkRings ?? matchOptionsFromPrefs().shrinkRings,
+    }),
+    { daily }
+  );
 });
 
 $('btn-winner-shuffle')?.addEventListener('click', () => {
   clearAutosave();
   hideWinner();
   const controllers = shuffleControllers(state.controllers || {});
-  enterPlaying(createInitialState({ controllers }), { daily: false });
+  enterPlaying(
+    createInitialState({
+      controllers,
+      shrinkRings: state.shrinkRings ?? matchOptionsFromPrefs().shrinkRings,
+    }),
+    { daily: false }
+  );
   showToast('Seats shuffled');
 });
 
@@ -909,7 +948,7 @@ $('btn-winner-replay').addEventListener('click', () => {
   if (!state.history?.length) return;
   const moves = state.history.map((m) => ({ ...m }));
   hideWinner();
-  enterReplay(moves);
+  enterReplay(moves, { shrinkRings: !!state.shrinkRings });
 });
 $('btn-replay-toggle').addEventListener('click', () => replay?.toggle());
 $('btn-replay-back').addEventListener('click', () => replay?.stepBack());
@@ -930,7 +969,7 @@ try {
   if (shared?.kind === 'replay') {
     const result = applyReplayPayload(shared);
     history.replaceState(null, '', location.pathname + location.search);
-    enterReplay(result.moves);
+    enterReplay(result.moves, { shrinkRings: result.shrinkRings });
     showToast('Opened shared replay');
   }
 } catch (err) {
@@ -946,7 +985,7 @@ window.AvatarChess = {
   getMode: () => mode,
   board,
   training: () => training,
-  play: (humans = 4) => enterPlaying(createInitialState({ humans })),
+  play: (humans = 4) => enterPlaying(createInitialState({ humans, ...matchOptionsFromPrefs() })),
   train: () => enterTraining(),
   async move(from, to) {
     if (mode !== 'playing') return state;

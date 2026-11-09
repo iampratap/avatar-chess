@@ -992,6 +992,13 @@ body {
   font-size: 0.95rem;
 }
 
+.hud-zone {
+  font-size: 0.78rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  color: var(--accent-2);
+}
+
 .hud-powers {
   display: flex;
   flex-direction: column;

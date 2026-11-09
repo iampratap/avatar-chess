@@ -85,6 +85,7 @@ function writeJson(key, value) {
 const defaultPrefs = () => ({
   difficulty: 'normal',
   blitz: 'off',
+  shrinkRings: false,
 });
 
 const defaultStats = () => ({
@@ -105,7 +106,12 @@ export function loadPrefs() {
   const p = readJson(PREFS_KEY, defaultPrefs());
   if (!DIFFICULTIES[p.difficulty]) p.difficulty = 'normal';
   if (!BLITZ_OPTIONS[p.blitz]) p.blitz = 'off';
+  p.shrinkRings = !!p.shrinkRings;
   return p;
+}
+
+export function isShrinkRingsEnabled() {
+  return !!loadPrefs().shrinkRings;
 }
 
 export function savePrefs(partial) {

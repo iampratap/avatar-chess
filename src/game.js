@@ -44,6 +44,130 @@ export function inBounds(file, rank) {
   return file >= 0 && file < 8 && rank >= 0 && rank < 8;
 }
 
+/** Full-board playable rectangle. */
+export function defaultBoardZone() {
+  return { minFile: 0, maxFile: 7, minRank: 0, maxRank: 7 };
+}
+
+/** Normalize zone; also accepts legacy numeric boardMargin. */
+export function normalizeZone(zoneOrMargin) {
+  if (typeof zoneOrMargin === 'number') {
+    const m = Math.max(0, Math.min(3, zoneOrMargin | 0));
+    return { minFile: m, maxFile: 7 - m, minRank: m, maxRank: 7 - m };
+  }
+  const d = defaultBoardZone();
+  const z = zoneOrMargin || d;
+  return {
+    minFile: Math.max(0, Math.min(7, z.minFile ?? d.minFile)),
+    maxFile: Math.max(0, Math.min(7, z.maxFile ?? d.maxFile)),
+    minRank: Math.max(0, Math.min(7, z.minRank ?? d.minRank)),
+    maxRank: Math.max(0, Math.min(7, z.maxRank ?? d.maxRank)),
+  };
+}
+
+export function zoneWidth(zone) {
+  const z = normalizeZone(zone);
+  return z.maxFile - z.minFile + 1;
+}
+
+export function zoneHeight(zone) {
+  const z = normalizeZone(zone);
+  return z.maxRank - z.minRank + 1;
+}
+
+export function isPlayableSquare(file, rank, zoneOrMargin = 0) {
+  const z = normalizeZone(zoneOrMargin);
+  return (
+    file >= z.minFile &&
+    file <= z.maxFile &&
+    rank >= z.minRank &&
+    rank <= z.maxRank
+  );
+}
+
+export function zoneLabel(zoneOrMargin = 0) {
+  const z = normalizeZone(zoneOrMargin);
+  return `${zoneWidth(z)}×${zoneHeight(z)}`;
+}
+
+/** True when no pieces sit on one side of the current playable rectangle. */
+export function edgeEmpty(board, zone, edge) {
+  const z = normalizeZone(zone);
+  if (edge === 'minRank') {
+    for (let file = z.minFile; file <= z.maxFile; file++) {
+      if (board[z.minRank]?.[file]) return false;
+    }
+    return true;
+  }
+  if (edge === 'maxRank') {
+    for (let file = z.minFile; file <= z.maxFile; file++) {
+      if (board[z.maxRank]?.[file]) return false;
+    }
+    return true;
+  }
+  if (edge === 'minFile') {
+    for (let rank = z.minRank; rank <= z.maxRank; rank++) {
+      if (board[rank]?.[z.minFile]) return false;
+    }
+    return true;
+  }
+  if (edge === 'maxFile') {
+    for (let rank = z.minRank; rank <= z.maxRank; rank++) {
+      if (board[rank]?.[z.maxFile]) return false;
+    }
+    return true;
+  }
+  return false;
+}
+
+/**
+ * If any edge of the playable zone is empty, remove that edge (repeat).
+ * Keeps at least a 2×2 inner area. Sets `justCollapsed` when the zone shrinks.
+ */
+export function maybeCollapseRings(state) {
+  if (!state?.shrinkRings) {
+    return state.justCollapsed ? { ...state, justCollapsed: false } : state;
+  }
+  let zone = normalizeZone(state.boardZone ?? state.boardMargin ?? 0);
+  const before = { ...zone };
+  let guard = 16;
+  while (guard-- > 0) {
+    const w = zoneWidth(zone);
+    const h = zoneHeight(zone);
+    if (h > 2 && edgeEmpty(state.board, zone, 'minRank')) {
+      zone = { ...zone, minRank: zone.minRank + 1 };
+      continue;
+    }
+    if (h > 2 && edgeEmpty(state.board, zone, 'maxRank')) {
+      zone = { ...zone, maxRank: zone.maxRank - 1 };
+      continue;
+    }
+    if (w > 2 && edgeEmpty(state.board, zone, 'minFile')) {
+      zone = { ...zone, minFile: zone.minFile + 1 };
+      continue;
+    }
+    if (w > 2 && edgeEmpty(state.board, zone, 'maxFile')) {
+      zone = { ...zone, maxFile: zone.maxFile - 1 };
+      continue;
+    }
+    break;
+  }
+  const changed =
+    zone.minFile !== before.minFile ||
+    zone.maxFile !== before.maxFile ||
+    zone.minRank !== before.minRank ||
+    zone.maxRank !== before.maxRank;
+  if (!changed) {
+    return state.justCollapsed ? { ...state, justCollapsed: false } : state;
+  }
+  return {
+    ...state,
+    boardZone: zone,
+    boardMargin: Math.min(zone.minFile, 7 - zone.maxFile, zone.minRank, 7 - zone.maxRank),
+    justCollapsed: true,
+  };
+}
+
 export function getPower(player, round) {
   const offset = POWER_OFFSET[player];
   return POWERS[(round - 1 + offset) % 3];
@@ -79,7 +203,7 @@ export function createControllers(humans = 4) {
   return controllers;
 }
 
-export function createInitialState({ humans = 4, controllers } = {}) {
+export function createInitialState({ humans = 4, controllers, shrinkRings = false } = {}) {
   const board = emptyBoard();
   const piecesLeft = { A: 0, B: 0, C: 0, D: 0 };
 
@@ -103,6 +227,10 @@ export function createInitialState({ humans = 4, controllers } = {}) {
     movesThisRound: 0,
     livingAtRoundStart: 4,
     controllers: controllers ? { ...controllers } : createControllers(humans),
+    shrinkRings: !!shrinkRings,
+    boardZone: defaultBoardZone(),
+    boardMargin: 0, // legacy mirror of symmetric inset
+    justCollapsed: false,
   };
 }
 
@@ -163,12 +291,12 @@ function pathClear(board, fromFile, fromRank, toFile, toRank) {
   return true;
 }
 
-function slideMoves(board, file, rank, player, directions) {
+function slideMoves(board, file, rank, player, directions, margin = 0) {
   const moves = [];
   for (const [df, dr] of directions) {
     let f = file + df;
     let r = rank + dr;
-    while (inBounds(f, r)) {
+    while (isPlayableSquare(f, r, margin)) {
       const cell = board[r][f];
       if (!cell) {
         moves.push({ file: f, rank: r, capture: false });
@@ -185,9 +313,10 @@ function slideMoves(board, file, rank, player, directions) {
   return moves;
 }
 
-export function getLegalMoves(board, file, rank, power, player) {
-  const cell = board[rank][file];
+export function getLegalMoves(board, file, rank, power, player, zoneOrMargin = 0) {
+  const cell = board[rank]?.[file];
   if (!cell || cell.player !== player) return [];
+  if (!isPlayableSquare(file, rank, zoneOrMargin)) return [];
 
   if (power === 'rook') {
     return slideMoves(board, file, rank, player, [
@@ -195,7 +324,7 @@ export function getLegalMoves(board, file, rank, power, player) {
       [-1, 0],
       [0, 1],
       [0, -1],
-    ]);
+    ], zoneOrMargin);
   }
 
   if (power === 'bishop') {
@@ -204,10 +333,10 @@ export function getLegalMoves(board, file, rank, power, player) {
       [1, -1],
       [-1, 1],
       [-1, -1],
-    ]);
+    ], zoneOrMargin);
   }
 
-  // knight
+  // knight — may jump over removed squares, but must land in the playable zone
   const moves = [];
   const deltas = [
     [1, 2],
@@ -222,7 +351,7 @@ export function getLegalMoves(board, file, rank, power, player) {
   for (const [df, dr] of deltas) {
     const f = file + df;
     const r = rank + dr;
-    if (!inBounds(f, r)) continue;
+    if (!isPlayableSquare(f, r, zoneOrMargin)) continue;
     const target = board[r][f];
     if (!target) moves.push({ file: f, rank: r, capture: false });
     else if (target.player !== player) moves.push({ file: f, rank: r, capture: true });
@@ -235,6 +364,7 @@ export function selectSquare(state, square) {
   const player = currentPlayer(state);
   const { file, rank } = algebraicToCoords(square);
   const cell = state.board[rank][file];
+  const zone = state.boardZone ?? state.boardMargin ?? 0;
 
   if (state.selected) {
     const legal = state.legalMoves.find((m) => m.file === file && m.rank === rank);
@@ -243,7 +373,7 @@ export function selectSquare(state, square) {
     // re-select own piece
     if (cell && cell.player === player) {
       const power = getPower(player, state.round);
-      const legalMoves = getLegalMoves(state.board, file, rank, power, player);
+      const legalMoves = getLegalMoves(state.board, file, rank, power, player, zone);
       return { ...state, selected: square, legalMoves };
     }
 
@@ -252,7 +382,7 @@ export function selectSquare(state, square) {
 
   if (cell && cell.player === player) {
     const power = getPower(player, state.round);
-    const legalMoves = getLegalMoves(state.board, file, rank, power, player);
+    const legalMoves = getLegalMoves(state.board, file, rank, power, player, zone);
     return { ...state, selected: square, legalMoves };
   }
 
@@ -321,7 +451,8 @@ export function applyMove(state, fromSq, toSq) {
   const piece = state.board[from.rank][from.file];
   if (!piece || piece.player !== player) return state;
 
-  const legal = getLegalMoves(state.board, from.file, from.rank, power, player);
+  const zone = state.boardZone ?? state.boardMargin ?? 0;
+  const legal = getLegalMoves(state.board, from.file, from.rank, power, player, zone);
   const ok = legal.find((m) => m.file === to.file && m.rank === to.rank);
   if (!ok) return state;
 
@@ -347,6 +478,7 @@ export function applyMove(state, fromSq, toSq) {
     to: toSq,
     pieceId: piece.id,
     captured,
+    boardZone: normalizeZone(zone),
   };
 
   let next = {
@@ -357,9 +489,21 @@ export function applyMove(state, fromSq, toSq) {
     selected: null,
     legalMoves: [],
     lastMove: historyEntry,
+    justCollapsed: false,
   };
 
   next = advanceTurn(next);
+  next = maybeCollapseRings(next);
+  if (next.justCollapsed && next.history?.length) {
+    const hist = [...next.history];
+    const last = {
+      ...hist[hist.length - 1],
+      boardZoneAfter: next.boardZone,
+      boardMarginAfter: next.boardMargin,
+    };
+    hist[hist.length - 1] = last;
+    next = { ...next, history: hist, lastMove: last };
+  }
   return next;
 }
 
@@ -370,19 +514,21 @@ export function clearPendingPowerSwitch(state) {
 /** Advance turn without moving (AI with zero legal moves). */
 export function passTurn(state) {
   if (state.winner) return state;
-  return advanceTurn({ ...state, selected: null, legalMoves: [] });
+  let next = advanceTurn({ ...state, selected: null, legalMoves: [], justCollapsed: false });
+  return maybeCollapseRings(next);
 }
 
 /** All legal moves for a player this turn. */
 export function listPlayerMoves(state, player) {
   const power = getPower(player, state.round);
+  const zone = state.boardZone ?? state.boardMargin ?? 0;
   const moves = [];
   for (let rank = 0; rank < 8; rank++) {
     for (let file = 0; file < 8; file++) {
       const cell = state.board[rank][file];
       if (!cell || cell.player !== player) continue;
       const from = coordsToAlgebraic(file, rank);
-      for (const m of getLegalMoves(state.board, file, rank, power, player)) {
+      for (const m of getLegalMoves(state.board, file, rank, power, player, zone)) {
         moves.push({
           from,
           to: coordsToAlgebraic(m.file, m.rank),
@@ -430,13 +576,20 @@ export function hydrateFromStatus(statusState) {
     controllers: statusState.controllers
       ? { ...statusState.controllers }
       : createControllers(4),
+    shrinkRings: !!statusState.shrinkRings,
+    boardZone: statusState.boardZone
+      ? normalizeZone(statusState.boardZone)
+      : normalizeZone(statusState.boardMargin ?? 0),
+    boardMargin: statusState.boardMargin ?? 0,
+    justCollapsed: false,
   };
 }
 
 /** Replay helper: rebuild state after applying first `upTo` history moves from opening. */
-export function stateAfterMoves(moves, upTo, controllers) {
+export function stateAfterMoves(moves, upTo, controllers, opts = {}) {
   let state = createInitialState({
     controllers: controllers || createControllers(4),
+    shrinkRings: !!opts.shrinkRings,
   });
   const n = Math.max(0, Math.min(upTo, moves.length));
   for (let i = 0; i < n; i++) {
@@ -452,6 +605,7 @@ export function stateAfterMoves(moves, upTo, controllers) {
     selected: null,
     legalMoves: [],
     pendingPowerSwitch: false,
+    justCollapsed: false,
     controllers: controllers ? { ...controllers } : state.controllers,
   };
 }
@@ -460,7 +614,9 @@ export function stateAfterMoves(moves, upTo, controllers) {
 export function undoLastMove(state) {
   if (!state.history?.length) return state;
   const moves = state.history.slice(0, -1);
-  return stateAfterMoves(moves, moves.length, state.controllers);
+  return stateAfterMoves(moves, moves.length, state.controllers, {
+    shrinkRings: state.shrinkRings,
+  });
 }
 
 export function powerHintText(power) {
