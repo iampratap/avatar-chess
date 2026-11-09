@@ -1,5 +1,5 @@
 /* Avatar Chess — offline-friendly service worker */
-const CACHE_VERSION = 'avatar-chess-mobilehud3';
+const CACHE_VERSION = 'avatar-chess-pawnstack1';
 const PRECACHE = [
   './',
   './index.html',
@@ -9,6 +9,7 @@ const PRECACHE = [
   './icons/icon-512.png',
   './icons/apple-touch-icon.png',
   './icons/favicon-32.png',
+  './icons/og-image.jpg',
   './src/main.js',
   './src/game.js',
   './src/board3d.js',
