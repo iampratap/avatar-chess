@@ -46,7 +46,7 @@ Each later round shifts every player to the next power (Rook → Knight → Bish
 
 ## Features
 
-- 3D board with orbit camera and animated moves / morphs / power-switch FX
+- **Board view 2D / 3D** — Canvas 2D for low-spec phones, or Three.js 3D with orbit camera, morphs, and FX
 - Human + PC seats (toggle Human/PC mid-game from the sidebar power list)
 - **PC difficulty** — Easy / Normal / Hard
 - **Blitz** — optional 20s / 45s per-turn clock
@@ -56,7 +56,7 @@ Each later round shifts every player to the next power (Rook → Knight → Bish
 - Career stats, win streaks, and local achievement badges
 - Rematch · shuffle seats, capture/elimination juice, win fanfare
 - Shareable / downloadable / importable match replays (including `#r=` links)
-- **Looks & Models** — app theme (Dark / White), board themes, piece kits, live 3D preview
+- **Looks & Models** — app theme (Dark / White), 2D/3D board view, board themes, piece kits, live preview
 - Autosave / resume in the browser (`localStorage`)
 - Match replay after a win
 - Sound effects with mute

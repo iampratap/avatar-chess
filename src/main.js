@@ -19,7 +19,7 @@ import {
   POWER_SYMBOL,
 } from './game.js';
 import { chooseAiMove, aiThinkDelayMs } from './ai.js';
-import { createBoard3D } from './board3d.js';
+import { createBoard } from './board.js';
 import {
   applyStatusPayload,
   applyReplayPayload,
@@ -62,6 +62,8 @@ import {
   saveThemePrefs,
   applyUiTheme,
   loadAndApplyUiTheme,
+  loadThemePrefs,
+  getViewMode,
 } from './themes.js';
 import { unlockAudio, isMuted, toggleMute, sfx } from './sound.js';
 import { createTrainingSession } from './training.js';
@@ -79,7 +81,8 @@ import {
 } from './meta.js';
 
 const host = $('canvas-host');
-const board = createBoard3D(host);
+let board = createBoard(host, getViewMode());
+let boardPointerBound = null;
 
 let uiTheme = loadAndApplyUiTheme();
 document.body.dataset.uiTheme = uiTheme;
@@ -118,10 +121,12 @@ document.addEventListener(
 
 function currentThemePrefs() {
   const boardPrefs = board.getThemes();
+  const stored = loadThemePrefs();
   return {
     ui: uiTheme,
     board: boardPrefs.board,
     piece: boardPrefs.piece,
+    viewMode: board.viewMode || stored.viewMode || '3d',
   };
 }
 
@@ -131,11 +136,54 @@ function persistAllThemes(partial = {}) {
     board: partial.board ?? prefs.board,
     piece: partial.piece ?? prefs.piece,
     ui: partial.ui ?? prefs.ui,
+    viewMode: partial.viewMode ?? prefs.viewMode,
   });
+}
+
+function bindBoardPointer() {
+  if (boardPointerBound && boardPointerBound !== board.domElement) {
+    boardPointerBound.removeEventListener('pointerup', onBoardClick);
+  }
+  board.domElement.addEventListener('pointerup', onBoardClick);
+  boardPointerBound = board.domElement;
+}
+
+function remountBoard(viewMode) {
+  const mode = viewMode === '2d' ? '2d' : '3d';
+  const prefs = currentThemePrefs();
+  if (boardPointerBound) {
+    boardPointerBound.removeEventListener('pointerup', onBoardClick);
+    boardPointerBound = null;
+  }
+  try {
+    board.dispose?.();
+  } catch {
+    /* ignore */
+  }
+  // Keep seat overlays; remove only previous canvas/webgl child canvases
+  for (const child of [...host.children]) {
+    if (child.id === 'board-seats' || child.id === 'coach-popup') continue;
+    if (child.tagName === 'CANVAS') child.remove();
+  }
+  board = createBoard(host, mode);
+  board.setThemes({ board: prefs.board, piece: prefs.piece, ui: prefs.ui });
+  board.setUiTheme(prefs.ui);
+  bindBoardPointer();
+  if (state) board.syncFromState(state);
+  requestAnimationFrame(() => board.resize());
+  return board;
+}
+
+function syncViewModeRadios(viewMode) {
+  const val = viewMode === '2d' ? '2d' : '3d';
+  for (const el of document.querySelectorAll('input[name="viewMode"]')) {
+    el.checked = el.value === val;
+  }
 }
 
 function syncSettingsUi() {
   const prefs = currentThemePrefs();
+  syncViewModeRadios(prefs.viewMode);
   updateThemeSummary(prefs);
   if (isSettingsOpen()) {
     renderSettingsPanel(prefs, applyThemeFromUi);
@@ -147,14 +195,20 @@ function applyThemeFromUi(partial) {
     uiTheme = applyUiTheme(partial.ui);
     document.body.dataset.uiTheme = uiTheme;
   }
-  board.setThemes(partial);
+  const nextView = partial.viewMode;
+  const viewChanged = nextView && nextView !== (board.viewMode || '3d');
   persistAllThemes(partial);
+  if (viewChanged) {
+    remountBoard(nextView);
+    showToast(nextView === '2d' ? 'Switched to 2D board' : 'Switched to 3D board');
+  } else {
+    board.setThemes(partial);
+    if (partial.ui) board.setUiTheme(partial.ui);
+  }
   syncSettingsUi();
-  // Live 3D preview while playing / replaying
   if (mode === 'playing' || mode === 'replay') refresh();
-  // On welcome, still resize so the hidden board reflects theme when Play starts
   else requestAnimationFrame(() => board.resize());
-  if (partial.ui) sfx.ui();
+  if (partial.ui || partial.viewMode) sfx.ui();
 }
 
 function showSettings() {
@@ -162,9 +216,9 @@ function showSettings() {
   renderSettingsPanel(currentThemePrefs(), applyThemeFromUi);
 }
 
-// Match 3D lighting to the restored UI theme on boot
 board.setUiTheme(uiTheme);
 syncSettingsUi();
+bindBoardPointer();
 
 let state = createInitialState();
 let mode = 'welcome'; // welcome | playing | replay
@@ -812,8 +866,6 @@ async function onBoardClick(ev) {
   if (state.selected !== prevSelected || state.legalMoves.length) refresh();
 }
 
-board.domElement.addEventListener('pointerup', onBoardClick);
-
 $('btn-welcome-mute').addEventListener('click', onMuteClick);
 $('btn-mute').addEventListener('click', onMuteClick);
 
@@ -859,6 +911,13 @@ for (const name of ['difficulty', 'blitz', 'shrinkRings', 'diceMode', 'dicePiece
     });
   });
 }
+
+document.querySelectorAll('input[name="viewMode"]').forEach((el) => {
+  el.addEventListener('change', () => {
+    if (!el.checked) return;
+    applyThemeFromUi({ viewMode: el.value === '2d' ? '2d' : '3d' });
+  });
+});
 
 $('btn-import-replay')?.addEventListener('click', () => {
   $('import-replay-file')?.click();

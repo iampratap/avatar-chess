@@ -1,5 +1,5 @@
 /* Avatar Chess — offline-friendly service worker */
-const CACHE_VERSION = 'avatar-chess-lightread1';
+const CACHE_VERSION = 'avatar-chess-mobilehud3';
 const PRECACHE = [
   './',
   './index.html',
@@ -12,6 +12,8 @@ const PRECACHE = [
   './src/main.js',
   './src/game.js',
   './src/board3d.js',
+  './src/board2d.js',
+  './src/board.js',
   './src/ai.js',
   './src/ui.js',
   './src/themes.js',

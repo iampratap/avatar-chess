@@ -837,6 +837,7 @@ export function createBoard3D(container) {
     projectSeatOverlays,
     resize: onResize,
     domElement: renderer.domElement,
+    viewMode: '3d',
     dispose() {
       running = false;
       dice3d.hide();

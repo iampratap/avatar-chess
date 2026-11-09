@@ -14,7 +14,7 @@
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png" />
     <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
-    <link rel="stylesheet" href="./styles.css?v=lightread1" />
+    <link rel="stylesheet" href="./styles.css?v=mobilehud3" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -95,6 +95,14 @@
 
           <section class="options-section" aria-label="Modes">
             <h3 class="options-section-title">Modes</h3>
+            <div class="humans-picker compact" role="group" aria-label="Board view">
+              <p class="picker-label">Board view</p>
+              <div class="picker-options">
+                <label class="picker-opt"><input type="radio" name="viewMode" value="3d" checked /> 3D</label>
+                <label class="picker-opt"><input type="radio" name="viewMode" value="2d" /> 2D</label>
+              </div>
+              <p class="picker-hint">2D is lighter on phones and low-power devices.</p>
+            </div>
             <div class="humans-picker compact" role="group" aria-label="Shrink rings">
               <p class="picker-label">Shrink rings</p>
               <div class="picker-options">
@@ -622,6 +630,12 @@
             </section>
 
             <section class="settings-section">
+              <h3>Board view</h3>
+              <div id="settings-view-options" class="settings-options" role="listbox" aria-label="Board view mode"></div>
+              <p class="picker-hint settings-view-hint">2D is lighter on phones and low-power devices.</p>
+            </section>
+
+            <section class="settings-section">
               <h3>Board</h3>
               <div id="settings-board-options" class="settings-options" role="listbox" aria-label="Board theme"></div>
             </section>
@@ -664,7 +678,7 @@
 
     <div id="toast-host" class="toast-host" aria-live="polite"></div>
 
-    <script type="module" src="./src/main.js?v=lightread1"></script>
+    <script type="module" src="./src/main.js?v=mobilehud3"></script>
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {

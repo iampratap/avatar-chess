@@ -13,6 +13,25 @@ export const UI_THEMES = {
   light: { id: 'light', label: 'White' },
 };
 
+/** Board render mode — 2D Canvas is lighter on phones / low-spec devices. */
+export const VIEW_MODES = {
+  '3d': { id: '3d', label: '3D' },
+  '2d': { id: '2d', label: '2D' },
+};
+
+/** First-visit default: prefer 2D on constrained mobile-like devices. */
+export function detectDefaultViewMode() {
+  try {
+    const coarse = window.matchMedia?.('(pointer: coarse)')?.matches;
+    const cores = navigator.hardwareConcurrency || 8;
+    const mem = navigator.deviceMemory;
+    if (coarse && (cores <= 4 || (typeof mem === 'number' && mem <= 4))) return '2d';
+  } catch {
+    /* ignore */
+  }
+  return '3d';
+}
+
 /** 3D scene lighting + backdrop tuned to the app UI theme. */
 export const UI_SCENE = {
   dark: {
@@ -140,15 +159,28 @@ export const PIECE_THEMES = {
 export function loadThemePrefs() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { board: 'wooden', piece: 'classic', ui: 'dark' };
+    if (!raw) {
+      return {
+        board: 'wooden',
+        piece: 'classic',
+        ui: 'dark',
+        viewMode: detectDefaultViewMode(),
+      };
+    }
     const parsed = JSON.parse(raw);
     return {
       board: BOARD_THEMES[parsed.board] ? parsed.board : 'wooden',
       piece: PIECE_THEMES[parsed.piece] ? parsed.piece : 'classic',
       ui: UI_THEMES[parsed.ui] ? parsed.ui : 'dark',
+      viewMode: parsed.viewMode === '2d' ? '2d' : '3d',
     };
   } catch {
-    return { board: 'wooden', piece: 'classic', ui: 'dark' };
+    return {
+      board: 'wooden',
+      piece: 'classic',
+      ui: 'dark',
+      viewMode: detectDefaultViewMode(),
+    };
   }
 }
 
@@ -159,8 +191,13 @@ export function saveThemePrefs(prefs) {
       board: prefs.board,
       piece: prefs.piece,
       ui: prefs.ui || 'dark',
+      viewMode: prefs.viewMode === '2d' ? '2d' : '3d',
     })
   );
+}
+
+export function getViewMode() {
+  return loadThemePrefs().viewMode === '2d' ? '2d' : '3d';
 }
 
 export function applyUiTheme(uiId) {

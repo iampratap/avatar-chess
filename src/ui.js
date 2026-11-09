@@ -14,7 +14,7 @@ import {
   livingPlayers,
   isAiPlayer,
 } from './game.js';
-import { BOARD_THEMES, PIECE_THEMES, UI_THEMES } from './themes.js';
+import { BOARD_THEMES, PIECE_THEMES, UI_THEMES, VIEW_MODES } from './themes.js';
 import { createThemePreview3D } from './themePreview3d.js';
 import { initHelpDiagrams } from './helpDiagrams.js';
 
@@ -659,11 +659,6 @@ export function openSettings() {
   closeSidebarMenu();
   const modal = $('settings-modal');
   if (modal) modal.hidden = false;
-  requestAnimationFrame(() => {
-    const preview = ensureSettingsPreview();
-    preview?.start();
-    preview?.resize();
-  });
 }
 
 export function closeSettings() {
@@ -676,17 +671,19 @@ export function isSettingsOpen() {
   return !$('settings-modal')?.hidden;
 }
 
-export function updateThemeSummary({ ui, board, piece }) {
+export function updateThemeSummary({ ui, board, piece, viewMode }) {
   const el = $('welcome-theme-summary');
   if (!el) return;
   const uiLabel = UI_THEMES[ui]?.label || ui;
   const boardLabel = BOARD_THEMES[board]?.label || board;
   const pieceLabel = PIECE_THEMES[piece]?.label || piece;
-  setTextIfChanged(el, `${uiLabel} · ${boardLabel} · ${pieceLabel}`, 'ui-fade');
+  const viewLabel = VIEW_MODES[viewMode]?.label || viewMode || '3D';
+  setTextIfChanged(el, `${uiLabel} · ${viewLabel} · ${boardLabel} · ${pieceLabel}`, 'ui-fade');
 }
 
-export function renderSettingsPanel({ ui, board, piece }, onChange) {
+export function renderSettingsPanel({ ui, board, piece, viewMode = '3d' }, onChange) {
   const uiRoot = $('settings-ui-options');
+  const viewRoot = $('settings-view-options');
   const boardRoot = $('settings-board-options');
   const pieceRoot = $('settings-piece-options');
   if (!uiRoot || !boardRoot || !pieceRoot) return;
@@ -700,6 +697,17 @@ export function renderSettingsPanel({ ui, board, piece }, onChange) {
       </button>`;
     })
     .join('');
+
+  if (viewRoot) {
+    viewRoot.innerHTML = Object.values(VIEW_MODES)
+      .map(
+        (t, i) =>
+          `<button type="button" class="settings-chip ui-enter" role="option" data-kind="viewMode" data-id="${t.id}" aria-selected="${t.id === viewMode}" style="--enter-delay:${i * 35}ms">
+        <span>${t.label}</span>
+      </button>`
+      )
+      .join('');
+  }
 
   boardRoot.innerHTML = Object.values(BOARD_THEMES)
     .map((t, i) => {
@@ -721,6 +729,7 @@ export function renderSettingsPanel({ ui, board, piece }, onChange) {
     .join('');
 
   const bind = (root) => {
+    if (!root) return;
     root.onclick = (e) => {
       const btn = e.target.closest?.('.settings-chip');
       if (!btn) return;
@@ -728,24 +737,46 @@ export function renderSettingsPanel({ ui, board, piece }, onChange) {
     };
   };
   bind(uiRoot);
+  bind(viewRoot);
   bind(boardRoot);
   bind(pieceRoot);
 
-  updateSettingsPreview({ ui, board, piece });
-  updateThemeSummary({ ui, board, piece });
+  updateSettingsPreview({ ui, board, piece, viewMode });
+  updateThemeSummary({ ui, board, piece, viewMode });
 }
 
-export function updateSettingsPreview({ ui, board, piece }) {
+export function updateSettingsPreview({ ui, board, piece, viewMode = '3d' }) {
   const boardTheme = BOARD_THEMES[board] || BOARD_THEMES.wooden;
   const pieceTheme = PIECE_THEMES[piece] || PIECE_THEMES.classic;
   const caption = $('settings-preview-caption');
   const preview = ensureSettingsPreview();
-  preview?.setThemes({ ui, board, piece });
-  if (isSettingsOpen()) preview?.start();
+  const host = $('settings-preview-host');
+  if (host) host.dataset.viewMode = viewMode === '2d' ? '2d' : '3d';
+  if (viewMode === '2d') {
+    preview?.stop?.();
+    if (host) {
+      host.innerHTML = `<div class="settings-preview-2d" aria-hidden="true">
+        <span class="settings-preview-2d-label">2D Canvas</span>
+        <span class="settings-preview-2d-board"></span>
+      </div>`;
+    }
+    settingsPreview = null;
+  } else {
+    if (host?.querySelector('.settings-preview-2d')) {
+      host.innerHTML = '';
+      settingsPreview = null;
+    }
+    const live = ensureSettingsPreview();
+    live?.setThemes({ ui, board, piece });
+    if (isSettingsOpen()) {
+      live?.start();
+      live?.resize?.();
+    }
+  }
   if (caption) {
     setTextIfChanged(
       caption,
-      `${UI_THEMES[ui]?.label || ui} · ${boardTheme.label} · ${pieceTheme.label}`,
+      `${UI_THEMES[ui]?.label || ui} · ${VIEW_MODES[viewMode]?.label || viewMode} · ${boardTheme.label} · ${pieceTheme.label}`,
       'ui-fade'
     );
   }
